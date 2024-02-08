@@ -1,5 +1,6 @@
 package cn.nukkit.entity;
 
+import cn.nukkit.AdventureSettings;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
@@ -118,6 +119,8 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             if (lastCause != null && lastCause.getDamage() >= source.getDamage()) {
                 return false;
             }
+
+            if (source.getCause().equals(DamageCause.ENTITY_ATTACK)) return false;
         }
 
         if (this.blockedByShield(source)) {
@@ -132,15 +135,18 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
                 }
 
                 // Critical hit
-                if (damager instanceof Player && !damager.onGround) {
-                    AnimatePacket animate = new AnimatePacket();
-                    animate.action = AnimatePacket.Action.CRITICAL_HIT;
-                    animate.eid = getId();
+                if (damager instanceof Player) {
+                    boolean flying = ((Player) damager).getAdventureSettings().get(AdventureSettings.Type.FLYING);
+                    if (!damager.isSprinting() && !flying && damager.fallDistance > 0 && !damager.hasEffect(Effect.BLINDNESS) && !damager.isInsideOfWater()) {
+                        AnimatePacket animate = new AnimatePacket();
+                        animate.action = AnimatePacket.Action.CRITICAL_HIT;
+                        animate.eid = getId();
 
-                    this.getLevel().addChunkPacket(damager.getChunkX(), damager.getChunkZ(), animate);
-                    this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_STRONG);
+                        this.getLevel().addChunkPacket(damager.getChunkX(), damager.getChunkZ(), animate);
+                        this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_STRONG);
 
-                    source.setDamage(source.getDamage() * 1.5f);
+                        source.setDamage(source.getDamage() + (source.getDamage() / 2));
+                    }
                 }
 
                 if (damager.isOnFire() && !(damager instanceof Player)) {
@@ -154,7 +160,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
 
             EntityEventPacket pk = new EntityEventPacket();
             pk.eid = this.getId();
-            pk.event = this.getHealth() < 1 ? EntityEventPacket.DEATH_ANIMATION : EntityEventPacket.HURT_ANIMATION;
+            pk.event = this.isAlive() ? EntityEventPacket.HURT_ANIMATION : EntityEventPacket.DEATH_ANIMATION;
             Server.broadcastPacket(this.hasSpawned.values(), pk);
 
             this.attackTime = source.getAttackCooldown();

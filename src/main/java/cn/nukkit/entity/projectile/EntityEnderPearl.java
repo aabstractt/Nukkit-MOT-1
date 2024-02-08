@@ -1,10 +1,8 @@
 package cn.nukkit.entity.projectile;
 
 import cn.nukkit.Player;
-import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.entity.Entity;
-import cn.nukkit.event.entity.CreatureSpawnEvent;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.player.PlayerTeleportEvent.TeleportCause;
@@ -13,7 +11,6 @@ import cn.nukkit.level.sound.EndermanTeleportSound;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.utils.Utils;
 
 import java.util.List;
 
@@ -61,44 +58,8 @@ public class EntityEnderPearl extends EntityProjectile {
 
     @Override
     public boolean onUpdate(int currentTick) {
-        if (this.closed) {
-            return false;
-        }
-
-        if (this.isCollided && this.shootingEntity instanceof Player) {
-            List<Block> b = this.getCollisionBlocks();
-
-            boolean portal = false;
-            for (Block collided : b) {
-                if (collided.getId() == Block.NETHER_PORTAL) {
-                    portal = true;
-                }
-            }
-
-            this.close();
-
-            if (!portal) {
-                teleport();
-
-                if (Server.getInstance().mobsFromBlocks) {
-                    if (Utils.rand(1, 20) == 5) {
-                        CreatureSpawnEvent ev = new CreatureSpawnEvent(NETWORK_ID, CreatureSpawnEvent.SpawnReason.ENDER_PEARL);
-                        level.getServer().getPluginManager().callEvent(ev);
-
-                        if (ev.isCancelled()) {
-                            return false;
-                        }
-
-                        Entity entity = Entity.createEntity("Endermite", this.add(0.5, 1, 0.5));
-                        if (entity != null) {
-                            entity.spawnToAll();
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
+        if (this.closed) return false;
+        if (this.isCollided && this.shootingEntity instanceof Player) return false;
 
         if (this.age > 1200 || this.isCollided) {
             this.close();
@@ -106,20 +67,24 @@ public class EntityEnderPearl extends EntityProjectile {
 
         return super.onUpdate(currentTick);
     }
-    
+
     @Override
-    public void onCollideWithEntity(Entity entity) {
-        if (this.shootingEntity instanceof Player) {
-            teleport();
-        }
-
-        super.onCollideWithEntity(entity);
-    }
-
-    private void teleport() {
+    protected void onHit() {
+        if (!(this.shootingEntity instanceof Player)) return;
         if (!this.level.equals(this.shootingEntity.getLevel())) {
             return;
         }
+
+        List<Block> b = this.getCollisionBlocks();
+
+        boolean portal = false;
+        for (Block collided : b) {
+            if (collided.getId() == Block.NETHER_PORTAL) {
+                portal = true;
+            }
+        }
+
+        if (portal) return;
 
         this.shootingEntity.teleport(new Vector3(NukkitMath.floorDouble(this.x) + 0.5, this.y, NukkitMath.floorDouble(this.z) + 0.5), TeleportCause.ENDER_PEARL);
 

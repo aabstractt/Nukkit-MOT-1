@@ -92,7 +92,7 @@ public class PlayerEnchantOptionsPacket extends DataPacket {
     }
 
     @Value
-    public class EnchantOptionData {
+    public static class EnchantOptionData {
         private final int minLevel;
         private final int primarySlot;
         private final List<EnchantData> enchants0;
@@ -103,7 +103,7 @@ public class PlayerEnchantOptionsPacket extends DataPacket {
     }
 
     @Value
-    public class EnchantData {
+    public static class EnchantData {
         private final int type;
         private final int level;
     }

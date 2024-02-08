@@ -14,6 +14,9 @@ public enum EnchantmentType {
     ARMOR_LEGS,
     ARMOR_FEET,
     SWORD,
+    AXE,
+    PICKAXE,
+    SHEARS,
     DIGGER,
     FISHING_ROD,
     BREAKABLE,
@@ -50,6 +53,12 @@ public enum EnchantmentType {
             switch (this) {
                 case SWORD:
                     return item.isSword();
+                    case AXE:
+                    return item.isAxe();
+                case PICKAXE:
+                    return item.isPickaxe();
+                case SHEARS:
+                    return item instanceof ItemShears;
                 case DIGGER:
                     return item.isPickaxe() || item.isShovel() || item.isAxe() || item.isHoe();
                 case BOW:

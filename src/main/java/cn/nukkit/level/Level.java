@@ -2129,6 +2129,8 @@ public class Level implements ChunkManager, Metadatable {
             this.server.getPluginManager().callEvent(ev);
             if (!ev.isCancelled()) {
                 for (Entity entity : this.getNearbyEntities(new SimpleAxisAlignedBB(x - 1, y - 1, z - 1, x + 1, y + 1, z + 1))) {
+                    if (entity == null) continue;
+
                     entity.scheduleUpdate();
                 }
                 block = ev.getBlock();
@@ -2663,6 +2665,9 @@ public class Level implements ChunkManager, Metadatable {
                 if (e == player || e instanceof EntityArrow || e instanceof EntityItem || (e instanceof Player && ((Player) e).isSpectator() || !e.canCollide())) {
                     continue;
                 }
+
+                if (!e.canCollideWithEntities) continue;
+
                 //++realCount;
                 return null;
             }

@@ -127,13 +127,13 @@ public class EntityZombie extends EntityWalkingMob implements EntitySmite {
 
         hasUpdate = super.entityBaseTick(tickDiff);
 
-        if (!this.closed && level.shouldMobBurn(this)) {
-            if (this.armor[0] == null) {
-                this.setOnFire(100);
-            } else if (this.armor[0].getId() == 0) {
-                this.setOnFire(100);
-            }
-        }
+//        if (!this.closed && level.shouldMobBurn(this)) {
+//            if (this.armor[0] == null) {
+//                this.setOnFire(100);
+//            } else if (this.armor[0].getId() == 0) {
+//                this.setOnFire(100);
+//            }
+//        }
 
         return hasUpdate;
     }

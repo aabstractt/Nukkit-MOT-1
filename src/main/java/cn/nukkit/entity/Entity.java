@@ -461,6 +461,7 @@ public abstract class Entity extends Location implements Metadatable {
     private volatile boolean initEntity;
 
     protected volatile boolean saveWithChunk = true;
+    public boolean canCollideWithEntities = true;
 
     private Map<String, Integer> intProperties = new LinkedHashMap<>();
     private Map<String, Float> floatProperties = new LinkedHashMap<>();
@@ -1493,7 +1494,7 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public boolean isAlive() {
-        return this.health >= 1;
+        return Math.ceil(this.health) > 0;
     }
 
     public boolean isClosed() {
@@ -1505,7 +1506,9 @@ public abstract class Entity extends Location implements Metadatable {
             return;
         }
 
-        if (health < 1) {
+        double nextHealth = Math.ceil(health);
+
+        if (nextHealth < 1.0) {
             if (this.isAlive()) {
                 this.kill();
             }
@@ -1515,7 +1518,7 @@ public abstract class Entity extends Location implements Metadatable {
             this.health = this.getMaxHealth();
         }
 
-        setDataProperty(new IntEntityData(DATA_HEALTH, (int) this.health), this.isPlayer || this instanceof EntityRideable);
+        setDataProperty(new IntEntityData(DATA_HEALTH, (int) nextHealth), this.isPlayer || this instanceof EntityRideable);
     }
 
     public void setLastDamageCause(EntityDamageEvent type) {
@@ -1535,7 +1538,7 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public boolean canCollideWith(Entity entity) {
-        return !this.justCreated && this != entity && !this.noClip;
+        return !this.justCreated && this != entity && !this.noClip && this.canCollideWithEntities;
     }
 
     public boolean canBeSavedWithChunk() {
