@@ -4,7 +4,7 @@
 
     <name>Nukkit-MOT</name>
     <groupId>cn.nukkit</groupId>
-    <artifactId>Nukkit</artifactId>
+    <artifactId>nukkit</artifactId>
     <version>MOT-SNAPSHOT</version>
 
     <properties>
@@ -20,12 +20,12 @@
 
     <distributionManagement>
         <snapshotRepository>
-            <id>repo-lanink-cn</id>
-            <url>https://repo.lanink.cn/repository/maven-snapshots/</url>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/Plorex-Services/mvn-repo/</url>
         </snapshotRepository>
         <repository>
-            <id>repo-lanink-cn</id>
-            <url>https://repo.lanink.cn/repository/maven-releases/</url>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/Plorex-Services/mvn-repo/</url>
         </repository>
     </distributionManagement>
 
