@@ -1,10 +1,10 @@
 package cn.nukkit.network.protocol;
 
-import cn.nukkit.network.protocol.types.HudElement;
-import cn.nukkit.network.protocol.types.HudVisibility;
+import cn.nukkit.network.protocol.types.hub.HudElement;
+import cn.nukkit.network.protocol.types.hub.HudVisibility;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 import java.util.Set;
@@ -12,15 +12,15 @@ import java.util.Set;
 /**
  * @since v649
  */
-@Data
-@EqualsAndHashCode(callSuper = true)
+@Setter
+@Getter
 @ToString(doNotUseGetters = true)
 public class SetHudPacket extends DataPacket {
 
-    public static final int NETWORK_ID = ProtocolInfo.SET_HUD;
+    public static final int NETWORK_ID = ProtocolInfo.SET_HUD_PACKET;
 
-    private final Set<HudElement> elements = new ObjectOpenHashSet<>();
-    private HudVisibility visibility;
+    public final Set<HudElement> elements = new ObjectOpenHashSet<>();
+    public HudVisibility visibility;
 
     @Override
     public int packetId() {
@@ -29,7 +29,7 @@ public class SetHudPacket extends DataPacket {
 
     @Override
     public byte pid() {
-        throw new UnsupportedOperationException("Not supported");
+        return 0;
     }
 
     @Override
