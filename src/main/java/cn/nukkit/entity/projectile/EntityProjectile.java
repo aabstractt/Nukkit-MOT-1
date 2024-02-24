@@ -70,6 +70,8 @@ public abstract class EntityProjectile extends Entity {
         ProjectileHitEvent hitEvent = new ProjectileHitEvent(this, MovingObjectPosition.fromEntity(entity));
         this.server.getPluginManager().callEvent(hitEvent);
         if (hitEvent.isCancelled()) {
+            this.close();
+
             return;
         }
 
@@ -197,6 +199,9 @@ public abstract class EntityProjectile extends Entity {
                     this.onHit();
                     this.onHitGround(moveVector);
                 }
+
+                this.close();
+
                 return false;
             } else if (!this.isCollided && this.hadCollision) {
                 this.hadCollision = false;

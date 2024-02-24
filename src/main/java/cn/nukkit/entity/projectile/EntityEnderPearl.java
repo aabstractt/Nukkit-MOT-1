@@ -1,6 +1,7 @@
 package cn.nukkit.entity.projectile;
 
 import cn.nukkit.Player;
+import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
@@ -40,12 +41,29 @@ public class EntityEnderPearl extends EntityProjectile {
 
     @Override
     protected float getGravity() {
-        return 0.03f;
+        Object value = Server.getInstance().getProperty("ender-pearl-gravity", 0.03f);
+        if (value == null || value.equals("")) return 0.03f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.03f;
+        }
+//        return 0.03f;
     }
 
     @Override
     protected float getDrag() {
-        return 0.01f;
+        Object value = Server.getInstance().getProperty("ender-pearl-drag", 0.01f);
+        if (value == null || value.equals("")) return 0.01f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.01f;
+        }
+
+//        return 0.01f;
     }
 
     public EntityEnderPearl(FullChunk chunk, CompoundTag nbt) {

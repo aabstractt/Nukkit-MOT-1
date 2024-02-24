@@ -1,5 +1,6 @@
 package cn.nukkit.entity.item;
 
+import cn.nukkit.Server;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.data.IntEntityData;
 import cn.nukkit.entity.projectile.EntityProjectile;
@@ -7,6 +8,7 @@ import cn.nukkit.event.potion.PotionCollideEvent;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.level.particle.Particle;
 import cn.nukkit.level.particle.SpellParticle;
+import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.LevelSoundEventPacket;
 import cn.nukkit.potion.Effect;
@@ -74,12 +76,29 @@ public class EntityPotion extends EntityProjectile {
 
     @Override
     protected float getGravity() {
-        return 0.05f;
+        Object value = Server.getInstance().getProperty("potion-gravity", 0.05f);
+        if (value == null || value.equals("")) return 0.05f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.05f;
+        }
+//        return 0.05f;
     }
 
     @Override
     protected float getDrag() {
-        return 0.01f;
+        Object value = Server.getInstance().getProperty("potion-drag", 0.01f);
+        if (value == null || value.equals("")) return 0.01f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.01f;
+        }
+
+//        return 0.01f;
     }
 
     protected void splash(Entity collidedWith) {
@@ -140,14 +159,15 @@ public class EntityPotion extends EntityProjectile {
     }
 
     @Override
-    public boolean onUpdate(int currentTick) {
-        if (this.closed) {
-            return false;
-        }
+    protected void onHitGround(Vector3 vector3) {
+        super.onHitGround(vector3);
 
-        if (this.isCollided) {
-            this.splash(null);
-        }
+        this.splash(null);
+    }
+
+    @Override
+    public boolean onUpdate(int currentTick) {
+        if (this.closed) return false;
 
         if (this.age > 1200 || this.isCollided) {
             this.close();

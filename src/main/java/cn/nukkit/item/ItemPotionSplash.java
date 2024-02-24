@@ -1,5 +1,6 @@
 package cn.nukkit.item;
 
+import cn.nukkit.Server;
 import cn.nukkit.nbt.tag.CompoundTag;
 
 /**
@@ -33,7 +34,14 @@ public class ItemPotionSplash extends ProjectileItem {
 
     @Override
     public float getThrowForce() {
-        return 0.50f;
+        Object value = Server.getInstance().getProperty("potion-throw-force", 0.50f);
+        if (value == null || value.equals("")) return 0.50f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.50f;
+        }
     }
 
     @Override

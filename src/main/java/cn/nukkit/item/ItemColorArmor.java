@@ -73,6 +73,16 @@ abstract public class ItemColorArmor extends ItemArmor {
         return this;
     }
 
+    public ItemColorArmor clearColor() {
+        if (!this.hasCompoundTag()) return this;
+
+        CompoundTag tag = this.getNamedTag();
+        tag.remove("customColor");
+        this.setNamedTag(tag);
+
+        return this;
+    }
+
     /**
      * Get color of Leather Item
      *

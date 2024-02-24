@@ -5928,7 +5928,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     @Override
     public void setMovementSpeed(float speed) {
-        setMovementSpeed(speed, true);
+        setMovementSpeed(speed, !this.isSneaking());
     }
 
     public void setMovementSpeed(float speed, boolean send) {
@@ -6563,10 +6563,10 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
             this.dropItem(drop);
         }
 
-        drops = this.inventory.addItem(this.getCursorInventory().getItem(0));
-        for (Item drop : drops) {
-            this.dropItem(drop);
-        }
+//        drops = this.inventory.addItem(this.getCursorInventory().getItem(0));
+//        for (Item drop : drops) {
+//            this.dropItem(drop);
+//        }
 
         this.playerUIInventory.clearAll();
 
@@ -6827,20 +6827,20 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
     public void setSprinting(boolean value) {
         if (isSprinting() != value) {
             super.setSprinting(value);
-            this.setMovementSpeed(value ? getMovementSpeed() * 1.3f : getMovementSpeed() / 1.3f, false);
+            this.setMovementSpeed(value ? getMovementSpeed() * 1.3f : getMovementSpeed() / 1.3f, true);
         }
     }
 
     @Override
     protected boolean canShortSneak() {
-        return this.protocol >= ProtocolInfo.v1_20_10_21;
+        return false;
     }
 
     @Override
     public void setSneaking(boolean value) {
         if (isSneaking() != value) {
             super.setSneaking(value);
-            this.setMovementSpeed(value ? getMovementSpeed() * 0.3f : getMovementSpeed() / 0.3f, false);
+            this.setMovementSpeed(value ? getMovementSpeed() * 0.3f : getMovementSpeed() / 0.3f, !value);
         }
     }
 
