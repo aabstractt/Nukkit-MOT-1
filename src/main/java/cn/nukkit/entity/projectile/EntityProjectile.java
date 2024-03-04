@@ -180,7 +180,7 @@ public abstract class EntityProjectile extends Entity {
                 onCollideWithEntity(movingObjectPosition.entityHit);
                 hasUpdate = true;
                 if (this.closed) {
-                    return true;
+                    return false;
                 }
             }
 
@@ -199,9 +199,8 @@ public abstract class EntityProjectile extends Entity {
                     this.onHit();
                     this.onHitGround(moveVector);
                 }
-
+				
                 this.close();
-
                 return false;
             } else if (!this.isCollided && this.hadCollision) {
                 this.hadCollision = false;
