@@ -21,7 +21,6 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.util.internal.PlatformDependent;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.message.FormattedMessage;
 
@@ -238,24 +237,7 @@ public class RakNetPlayerSession implements NetworkPlayerSession, RakNetSessionL
 
                     this.sendPacket(((BatchPacket) packet).payload, RakNetPriority.MEDIUM);
                 } else {
-//                    toBatch.add(packet);
-
-//                    if (toBatch.size() > 10) {
-//                        this.sendPackets(toBatch);
-//
-//                        toBatch.clear();
-//                    }
-                    BinaryStream batched = new BinaryStream();
-                    byte[] buf = packet.getBuffer();
-                    batched.putUnsignedVarInt(buf.length);
-                    batched.put(buf);
-
-                    try {
-                        this.sendPacket(this.compressionOut.compress(batched, Server.getInstance().networkCompressionLevel), RakNetPriority.IMMEDIATE);
-                    } catch (Exception e) {
-                        log.error("Unable to compress disconnect packet", e);
-                    }
-
+                    toBatch.add(packet);
                 }
             }
 
@@ -290,22 +272,20 @@ public class RakNetPlayerSession implements NetworkPlayerSession, RakNetSessionL
             }
 
             byte[] buf = packet.getBuffer();
-//            if (batched.getCount() + packet.getCount() > 3000000) {
-//                this.sendPacket(batched, RakNetPriority.MEDIUM);
-//
-//                batched = new BinaryStream();
-//            }
-
+            if (batched.getCount() + buf.length > 3145728) { // 3 * 1024 * 1024
+                this.sendPackets(batched);
+                batched = new BinaryStream();
+            }
             batched.putUnsignedVarInt(buf.length);
             batched.put(buf);
         }
 
-        this.sendPacket(batched, RakNetPriority.MEDIUM);
+        this.sendPackets(batched);
     }
 
-    private void sendPacket(@NonNull BinaryStream batched, @NonNull RakNetPriority priority) {
+    private void sendPackets(BinaryStream batched) {
         try {
-            this.sendPacket(this.compressionOut.compress(batched, Server.getInstance().networkCompressionLevel), priority);
+            this.sendPacket(this.compressionOut.compress(batched, Server.getInstance().networkCompressionLevel), RakNetPriority.MEDIUM);
         } catch (Exception e) {
             log.error("Unable to compress batched packets", e);
         }

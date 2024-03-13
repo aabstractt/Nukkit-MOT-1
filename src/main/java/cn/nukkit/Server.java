@@ -1238,7 +1238,7 @@ public class Server {
     }
 
     public void removePlayerListData(UUID uuid, Collection<Player> players) {
-        this.removePlayerListData(uuid, players.toArray(new Player[0]));
+        this.removePlayerListData(uuid, players.toArray(Player.EMPTY_ARRAY));
     }
 
     public void removePlayerListData(UUID uuid, Player player) {
@@ -1249,19 +1249,20 @@ public class Server {
     }
 
     public void sendFullPlayerListData(Player player) {
-        for (Player p : this.playerList.values()) {
+        PlayerListPacket.Entry[] array = this.playerList.values().stream()
+                .map(p -> new PlayerListPacket.Entry(
+                        p.getUniqueId(),
+                        p.getId(),
+                        p.getDisplayName(),
+                        p.getSkin(),
+                        p.getLoginChainData().getXUID()))
+                .toArray(PlayerListPacket.Entry[]::new);
+        for (PlayerListPacket.Entry[] a : (PlayerListPacket.Entry[][]) Utils.splitArray(array, 50)) {
             PlayerListPacket pk = new PlayerListPacket();
             pk.type = PlayerListPacket.TYPE_ADD;
-            pk.entries = new PlayerListPacket.Entry[] {new PlayerListPacket.Entry(
-                    p.getUniqueId(),
-                    p.getId(),
-                    p.getDisplayName(),
-                    p.getSkin(),
-                    p.getLoginChainData().getXUID())
-            };
+            pk.entries = a;
             player.dataPacket(pk);
         }
-
     }
 
     public void sendRecipeList(Player player) {
@@ -2783,6 +2784,9 @@ public class Server {
         Entity.registerEntity("ThrownExpBottle", EntityExpBottle.class);
         Entity.registerEntity("ThrownPotion", EntityPotion.class);
         Entity.registerEntity("Egg", EntityEgg.class);
+        Entity.registerEntity("SmallFireBall", EntitySmallFireBall.class);
+        // 和原版名称不一样，已弃用
+        // The name is different from the vanilla version and has been deprecated
         Entity.registerEntity("BlazeFireBall", EntityBlazeFireBall.class);
         Entity.registerEntity("GhastFireBall", EntityGhastFireBall.class);
         Entity.registerEntity("ShulkerBullet", EntityShulkerBullet.class);
