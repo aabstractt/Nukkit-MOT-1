@@ -1,5 +1,6 @@
 package cn.nukkit.entity.projectile;
 
+import cn.nukkit.Server;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.item.ItemSnowball;
 import cn.nukkit.level.format.FullChunk;
@@ -36,12 +37,28 @@ public class EntitySnowball extends EntityProjectile {
 
     @Override
     protected float getGravity() {
-        return 0.03f;
+        Object value = Server.getInstance().getProperty("snowball-gravity", 0.03f);
+        if (value == null || value.equals("")) return 0.03f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.03f;
+        }
+//        return 0.03f;
     }
 
     @Override
     protected float getDrag() {
-        return 0.01f;
+        Object value = Server.getInstance().getProperty("snowball-drag", 0.01f);
+        if (value == null || value.equals("")) return 0.01f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 0.01f;
+        }
+//        return 0.01f;
     }
 
     public EntitySnowball(FullChunk chunk, CompoundTag nbt) {

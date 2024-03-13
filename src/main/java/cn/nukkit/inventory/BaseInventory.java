@@ -37,6 +37,8 @@ public abstract class BaseInventory implements Inventory {
 
     public final Map<Integer, Item> slots = new HashMap<>();
 
+    private final List<InventoryListener> listeners = new ArrayList<>();
+
     protected final Set<Player> viewers = new HashSet<>();
 
     protected InventoryHolder holder;
@@ -468,6 +470,10 @@ public abstract class BaseInventory implements Inventory {
         if (send) {
             this.sendSlot(index, this.getViewers());
         }
+
+        for (InventoryListener listener : this.listeners) {
+            listener.onInventoryChanged(this, before, index);
+        }
     }
 
     @Override
@@ -599,5 +605,13 @@ public abstract class BaseInventory implements Inventory {
     @Override
     public InventoryType getType() {
         return type;
+    }
+
+    public void addListener(InventoryListener listener) {
+        this.listeners.add(listener);
+    }
+
+    public void removeListener(InventoryListener listener) {
+        this.listeners.remove(listener);
     }
 }

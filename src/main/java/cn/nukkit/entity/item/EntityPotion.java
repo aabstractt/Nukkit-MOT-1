@@ -142,13 +142,25 @@ public class EntityPotion extends EntityProjectile {
         this.getLevel().addParticle(particle);
         this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_GLASS);
 
-        Entity[] entities = this.getLevel().getNearbyEntities(this.getBoundingBox().grow(4.125, 2.125, 4.125));
+        Entity[] entities = this.getLevel().getNearbyEntities(this.getBoundingBox().grow(this.getGrow(), 4.0, this.getGrow()));
         for (Entity anEntity : entities) {
             double distance = anEntity.distanceSquared(this);
             if (distance < 16) {
-                double d = anEntity.equals(collidedWith) ? 1 : 1 - Math.sqrt(distance) / 4;
+                double d = anEntity.equals(collidedWith) ? 3 : 1 - Math.sqrt(distance) / 4;
+
                 potion.applyPotion(anEntity, d);
             }
+        }
+    }
+
+    private float getGrow() {
+        Object value = Server.getInstance().getProperty("potion-grow", 1.5f);
+        if (value == null || value.equals("")) return 1.5f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 1.5f;
         }
     }
 

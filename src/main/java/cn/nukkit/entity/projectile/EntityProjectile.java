@@ -84,11 +84,11 @@ public abstract class EntityProjectile extends Entity {
             ev = new EntityDamageByChildEntityEvent(this.shootingEntity, this, entity, DamageCause.PROJECTILE, damage);
         }
 
+        this.hadCollision = true;
+
+        this.onHit();
+
         if (entity.attack(ev)) {
-            this.hadCollision = true;
-
-            this.onHit();
-
             if (this.fireTicks > 0) {
                 EntityCombustByEntityEvent event = new EntityCombustByEntityEvent(this, entity, 5);
                 this.server.getPluginManager().callEvent(event);

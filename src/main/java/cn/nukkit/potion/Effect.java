@@ -239,6 +239,9 @@ public class Effect implements Cloneable {
 
     public void add(Entity entity) {
         Effect oldEffect = entity.getEffect(getId());
+        if (oldEffect != null && oldEffect.getAmplifier() >= this.getAmplifier() && oldEffect.getDuration() > this.getDuration()) {
+            return;
+        }
 
         EntityEffectUpdateEvent event = new EntityEffectUpdateEvent(entity, oldEffect, this);
         Server.getInstance().getPluginManager().callEvent(event);

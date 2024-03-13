@@ -902,6 +902,11 @@ public abstract class Entity extends Location implements Metadatable {
             return; //here add null means add nothing
         }
 
+        Effect oldEffect = this.getEffect(effect.getId());
+        if (oldEffect != null && oldEffect.getAmplifier() >= effect.getAmplifier() && oldEffect.getDuration() > effect.getDuration()) {
+            return;
+        }
+
         effect.add(this);
 
         this.effects.put(effect.getId(), effect);
@@ -2042,17 +2047,17 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     protected void updateFallState(boolean onGround) {
-        if (onGround) {
-            fallDistance = (float) (this.highestPosition - this.y);
+        if (!onGround) return;
 
-            if (fallDistance > 0) {
-                // check if we fell into at least 1 block of water
-                if (this instanceof EntityLiving && !(this.getLevelBlock() instanceof BlockWater) && !(this instanceof EntityFlying)) {
-                    this.fall(fallDistance);
-                }
-                this.resetFallDistance();
-            }
+        fallDistance = (float) (this.highestPosition - this.y);
+        if (!(fallDistance > 0)) return;
+
+        // check if we fell into at least 1 block of water
+        if (this instanceof EntityLiving && !(this.getLevelBlock() instanceof BlockWater) && !(this instanceof EntityFlying) && !(this.getLevelBlock() instanceof BlockCobweb)) {
+            this.fall(fallDistance);
         }
+
+        this.resetFallDistance();
     }
 
     public AxisAlignedBB getBoundingBox() {
@@ -2730,6 +2735,8 @@ public abstract class Entity extends Location implements Metadatable {
         }
 
         this.ySize = 0;
+
+        this.updateMovement();
 
         if (cause != PlayerTeleportEvent.TeleportCause.ENDER_PEARL) {
             this.setMotion(this.temporalVector.setComponents(0, 0, 0));

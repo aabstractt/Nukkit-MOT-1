@@ -1,5 +1,7 @@
 package cn.nukkit.item;
 
+import cn.nukkit.Server;
+
 /**
  * @author MagicDroidX
  * Nukkit Project
@@ -30,6 +32,14 @@ public class ItemSnowball extends ProjectileItem {
 
     @Override
     public float getThrowForce() {
-        return 1.5f;
+        Object value = Server.getInstance().getProperty("snowball-throw-force", 1.5f);
+        if (value == null || value.equals("")) return 1.5f;
+
+        try {
+            return Float.parseFloat(value.toString());
+        } catch (Exception e) {
+            return 1.5f;
+        }
+//        return 1.5f;return 1.5f;
     }
 }

@@ -49,23 +49,39 @@ public final class DataPacketManager {
             return null;
         }
 
-        DataPacketProcessor processor;
-        protocol++;
-        do {
-            protocol--;
-            Int2ObjectOpenHashMap<DataPacketProcessor> map = PROTOCOL_PROCESSORS.get(protocol);
-            processor = map != null ? map.get(packetId) : null;
-        } while ((processor == null || !processor.isSupported(originProtocol)) && protocol >= Server.getInstance().minimumProtocol);
+        if (protocol < Server.getInstance().minimumProtocol) return null;
 
-        if (processor != null && processor.isSupported(originProtocol)) {
-            if (protocol != originProtocol) {
-                registerProcessor(originProtocol, processor);
-            }
+        for (int lazyProtocol : PROTOCOL_PROCESSORS.keySet()) {
+            if (lazyProtocol > originProtocol) continue;
+
+            Int2ObjectOpenHashMap<DataPacketProcessor> map = PROTOCOL_PROCESSORS.get(lazyProtocol);
+            if (map == null) return null;
+
+            DataPacketProcessor processor = map.get(packetId);
+            if (processor == null || !processor.isSupported(originProtocol)) continue;
+
             return processor;
         }
 
-        UNREGISTERED_PACKETS.add(index);
         return null;
+
+//        DataPacketProcessor processor;
+//        protocol++;
+//        do {
+//            protocol--;
+//            Int2ObjectOpenHashMap<DataPacketProcessor> map = PROTOCOL_PROCESSORS.get(protocol);
+//            processor = map != null ? map.get(packetId) : null;
+//        } while ((processor == null || !processor.isSupported(originProtocol)) && protocol >= Server.getInstance().minimumProtocol);
+//
+//        if (processor != null && processor.isSupported(originProtocol)) {
+//            if (protocol != originProtocol) {
+//                registerProcessor(originProtocol, processor);
+//            }
+//            return processor;
+//        }
+//
+//        UNREGISTERED_PACKETS.add(index);
+//        return null;
     }
 
     private static int getIndex(int protocol, int packetId) {

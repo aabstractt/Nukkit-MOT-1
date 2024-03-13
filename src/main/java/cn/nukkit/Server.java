@@ -1249,17 +1249,19 @@ public class Server {
     }
 
     public void sendFullPlayerListData(Player player) {
-        PlayerListPacket pk = new PlayerListPacket();
-        pk.type = PlayerListPacket.TYPE_ADD;
-        pk.entries = this.playerList.values().stream()
-                .map(p -> new PlayerListPacket.Entry(
-                        p.getUniqueId(),
-                        p.getId(),
-                        p.getDisplayName(),
-                        p.getSkin(),
-                        p.getLoginChainData().getXUID()))
-                .toArray(PlayerListPacket.Entry[]::new);
-        player.dataPacket(pk);
+        for (Player p : this.playerList.values()) {
+            PlayerListPacket pk = new PlayerListPacket();
+            pk.type = PlayerListPacket.TYPE_ADD;
+            pk.entries = new PlayerListPacket.Entry[] {new PlayerListPacket.Entry(
+                    p.getUniqueId(),
+                    p.getId(),
+                    p.getDisplayName(),
+                    p.getSkin(),
+                    p.getLoginChainData().getXUID())
+            };
+            player.dataPacket(pk);
+        }
+
     }
 
     public void sendRecipeList(Player player) {
