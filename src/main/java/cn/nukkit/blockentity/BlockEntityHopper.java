@@ -123,10 +123,6 @@ public class BlockEntityHopper extends BlockEntitySpawnableContainer implements 
         this.transferCooldown--;
 
         if (!this.isOnTransferCooldown()) {
-            if (this.level.isBlockPowered(getBlock())) {
-                return true;
-            }
-
             boolean changed = pushItems() || pushItemsIntoMinecart();
 
             if (!changed) {

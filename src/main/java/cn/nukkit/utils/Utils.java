@@ -5,6 +5,7 @@ import cn.nukkit.block.Block;
 import cn.nukkit.entity.mob.*;
 import cn.nukkit.item.Item;
 import cn.nukkit.math.NukkitRandom;
+import cn.nukkit.network.protocol.PlayerListPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -246,6 +247,26 @@ public class Utils {
         result |= (argb << 16) & 0x00FF0000L; // B to R
         result |= (argb >>> 16) & 0xFFL; // R to B
         return result & 0xFFFFFFFFL;
+    }
+
+    public static List<PlayerListPacket.Entry[]> splitEntries(PlayerListPacket.Entry[] entries, int chunkSize) {
+        if (chunkSize <= 0) return new ArrayList<>();
+
+        if (entries.length <= chunkSize) return Collections.singletonList(entries);
+
+        int rest = entries.length % chunkSize;
+        int chunks = entries.length / chunkSize + (rest > 0 ? 1 : 0);
+
+        List<PlayerListPacket.Entry[]> arrays = new ArrayList<>(chunks);
+        for (int i = 0; i < (rest > 0 ? chunks - 1 : chunks); i++) {
+            arrays.add(Arrays.copyOfRange(entries, i * chunkSize, i * chunkSize + chunkSize));
+        }
+
+        if (rest > 0) {
+            arrays.add(Arrays.copyOfRange(entries, (chunks - 1) * chunkSize, (chunks - 1) * chunkSize + rest));
+        }
+
+        return arrays;
     }
 
     @NotNull
