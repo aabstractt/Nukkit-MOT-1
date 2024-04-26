@@ -3279,9 +3279,40 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                     }
                     this.server.getPluginManager().callEvent(pmse);
                     if (!pmse.isCancelled()) {
-                        level.addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_NODAMAGE, -1, "minecraft:player", false, false);
+//                        level.addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_NODAMAGE, -1, "minecraft:player", false, false);
+                    }
+                }if (protocol >= ProtocolInfo.v1_20_30_24) {
+                if (authPacket.getInputData().contains(AuthInputAction.START_FLYING)) {
+                    if (!server.getAllowFlight() && !this.getAdventureSettings().get(Type.ALLOW_FLIGHT)) {
+                        this.kick(PlayerKickEvent.Reason.FLYING_DISABLED, "Flying is not enabled on this server");
+                        break;
+                    }
+                    PlayerToggleFlightEvent playerToggleFlightEvent = new PlayerToggleFlightEvent(this, true);
+                    if (this.isSpectator()) {
+                        playerToggleFlightEvent.setCancelled();
+                    }
+                    this.getServer().getPluginManager().callEvent(playerToggleFlightEvent);
+                    if (playerToggleFlightEvent.isCancelled()) {
+                        this.getAdventureSettings().update();
+                    } else {
+                        this.getAdventureSettings().set(AdventureSettings.Type.FLYING, playerToggleFlightEvent.isFlying());
                     }
                 }
+
+                if (authPacket.getInputData().contains(AuthInputAction.STOP_FLYING)) {
+                    PlayerToggleFlightEvent playerToggleFlightEvent = new PlayerToggleFlightEvent(this, false);
+                    if (this.isSpectator()) {
+                        playerToggleFlightEvent.setCancelled();
+                    }
+                    this.getServer().getPluginManager().callEvent(playerToggleFlightEvent);
+                    if (playerToggleFlightEvent.isCancelled()) {
+                        this.getAdventureSettings().update();
+                    } else {
+                        this.getAdventureSettings().set(AdventureSettings.Type.FLYING, playerToggleFlightEvent.isFlying());
+                    }
+                }
+
+            }
 
 //                if (protocol >= ProtocolInfo.v1_20_30_24 //1.20.20.22开始爬行模式不属于实验性玩法
 //                        || (protocol >= ProtocolInfo.v1_20_10_21 && this.server.enableExperimentMode)) {
@@ -3515,7 +3546,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                         PlayerMissedSwingEvent pmse = new PlayerMissedSwingEvent(this);
                         this.server.getPluginManager().callEvent(pmse);
                         if (!pmse.isCancelled()) {
-                            this.level.addSound(this, Sound.GAME_PLAYER_ATTACK_NODAMAGE);
+//                            this.level.addSound(this, Sound.GAME_PLAYER_ATTACK_NODAMAGE);
                         }
                         break packetswitch;
 //                    case PlayerActionPacket.ACTION_START_CRAWLING:
