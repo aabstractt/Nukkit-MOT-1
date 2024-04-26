@@ -18,7 +18,7 @@ public class LibraryLoader {
 
     static {
         if (BASE_FOLDER.mkdir()) {
-            LOGGER.info("Created libraries folder.");
+            LOGGER.info("[LibraryLoader] Created libraries folder");
         }
     }
 
@@ -28,14 +28,17 @@ public class LibraryLoader {
             throw new IllegalArgumentException(library);
         }
         load(new Library() {
+            @Override
             public String getGroupId() {
                 return split[0];
             }
 
+            @Override
             public String getArtifactId() {
                 return split[1];
             }
 
+            @Override
             public String getVersion() {
                 return split[2];
             }

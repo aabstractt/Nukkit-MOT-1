@@ -89,10 +89,12 @@ public class BlockEntityHopper extends BlockEntitySpawnableContainer implements 
         this.namedTag.putString("CustomName", name);
     }
 
+    @Override
     public boolean isOnTransferCooldown() {
         return this.transferCooldown > 0;
     }
 
+    @Override
     public void setTransferCooldown(int transferCooldown) {
         this.transferCooldown = transferCooldown;
     }
@@ -233,6 +235,7 @@ public class BlockEntityHopper extends BlockEntitySpawnableContainer implements 
         return false;
     }
 
+    @Override
     public boolean pushItems() {
         if (this.inventory.isEmpty()) {
             return false;

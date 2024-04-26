@@ -293,7 +293,7 @@ public interface ItemID {
     int SHIELD = 513;
 
     int RECORD_5 = 636;
-
+    int DISC_FRAGMENT_5 = 637;
     int OAK_CHEST_BOAT = 638;
     int BIRCH_CHEST_BOAT = 639;
     int JUNGLE_CHEST_BOAT = 640;
@@ -337,7 +337,9 @@ public interface ItemID {
     int WARPED_DOOR = 756;
     int WARPED_FUNGUS_ON_A_STICK = 757;
     //
+    int CHAIN = 758;
     int RECORD_PIGSTEP = 759;
+    int NETHER_SPROUTS = 760;
     //
     int AMETHYST_SHARD = 771;
     int SPYGLASS = 772;

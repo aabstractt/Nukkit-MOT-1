@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
  * @author MagicDroidX(code) @ Nukkit Project
  * @author 粉鞋大妈(javadoc) @ Nukkit Project
  * @see cn.nukkit.plugin.PluginDescription
- * @since Nukkit 1.0 | Nukkit API 1.0.0
  */
 abstract public class PluginBase implements Plugin {
 
@@ -43,18 +42,22 @@ abstract public class PluginBase implements Plugin {
     private PluginLogger logger;
 
 
+    @Override
     public void onLoad() {
 
     }
 
+    @Override
     public void onEnable() {
 
     }
 
+    @Override
     public void onDisable() {
 
     }
 
+    @Override
     public final boolean isEnabled() {
         return isEnabled;
     }
@@ -80,7 +83,6 @@ abstract public class PluginBase implements Plugin {
      * It's normally used by a plugin manager plugin to manage plugins.
      *
      * @param value {@code true}为加载，{@code false}为卸载。<br>{@code true} for enable, {@code false} for disable.
-     * @since Nukkit 1.0 | Nukkit API 1.0.0
      */
     public final void setEnabled(boolean value) {
         if (isEnabled != value) {
@@ -96,14 +98,17 @@ abstract public class PluginBase implements Plugin {
         }
     }
 
+    @Override
     public final boolean isDisabled() {
         return !isEnabled;
     }
 
+    @Override
     public final File getDataFolder() {
         return dataFolder;
     }
 
+    @Override
     public final PluginDescription getDescription() {
         return description;
     }
@@ -125,7 +130,6 @@ abstract public class PluginBase implements Plugin {
      *                    The data folder of this plugin.
      * @param file        这个插件的文件{@code File}对象。对于jar格式的插件，就是jar文件本身。<br>
      *                    The {@code File} object of this plugin itself. For jar-packed plugins, it is the jar file itself.
-     * @since Nukkit 1.0 | Nukkit API 1.0.0
      */
     public final void init(PluginLoader loader, Server server, PluginDescription description, File dataFolder, File file) {
         if (!initialized) {
@@ -140,6 +144,7 @@ abstract public class PluginBase implements Plugin {
         }
     }
 
+    @Override
     public PluginLogger getLogger() {
         return logger;
     }
@@ -149,7 +154,6 @@ abstract public class PluginBase implements Plugin {
      * Returns if this plugin is initialized.
      *
      * @return 这个插件是否已初始化。<br>if this plugin is initialized.
-     * @since Nukkit 1.0 | Nukkit API 1.0.0
      */
     public final boolean isInitialized() {
         return initialized;
@@ -274,7 +278,6 @@ abstract public class PluginBase implements Plugin {
      *
      * @return 这个插件完整的名字。<br>The full name of this plugin.
      * @see cn.nukkit.plugin.PluginDescription#getFullName
-     * @since Nukkit 1.0 | Nukkit API 1.0.0
      */
     public final String getFullName() {
         return this.description.getFullName();
@@ -285,7 +288,6 @@ abstract public class PluginBase implements Plugin {
      * Returns the {@code File} object of this plugin itself. For jar-packed plugins, it is the jar file itself.
      *
      * @return 这个插件的文件 {@code File}对象。<br>The {@code File} object of this plugin itself.
-     * @since Nukkit 1.0 | Nukkit API 1.0.0
      */
     @Override
     public File getFile() {

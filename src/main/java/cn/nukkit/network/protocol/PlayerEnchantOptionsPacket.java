@@ -1,11 +1,13 @@
 package cn.nukkit.network.protocol;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.ToString;
 import lombok.Value;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@ToString
 public class PlayerEnchantOptionsPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.PLAYER_ENCHANT_OPTIONS_PACKET;
@@ -93,18 +95,18 @@ public class PlayerEnchantOptionsPacket extends DataPacket {
 
     @Value
     public static class EnchantOptionData {
-        private final int minLevel;
-        private final int primarySlot;
-        private final List<EnchantData> enchants0;
-        private final List<EnchantData> enchants1;
-        private final List<EnchantData> enchants2;
-        private final String enchantName;
-        private final int enchantNetId;
+        int minLevel;
+        int primarySlot;
+        List<EnchantData> enchants0;
+        List<EnchantData> enchants1;
+        List<EnchantData> enchants2;
+        String enchantName;
+        int enchantNetId;
     }
 
     @Value
     public static class EnchantData {
-        private final int type;
-        private final int level;
+        int type;
+        int level;
     }
 }

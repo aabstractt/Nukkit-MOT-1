@@ -323,6 +323,10 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_FLAG_FEELING_HAPPY = 112;
     public static final int DATA_FLAG_SEARCHING = 113;
     public static final int DATA_FLAG_CRAWLING = 114;
+    public static final int DATA_TIMER_FLAG_1 = 115;
+    public static final int DATA_TIMER_FLAG_2 = 116;
+    public static final int DATA_TIMER_FLAG_3 = 117;
+    public static final int DATA_FLAG_BODY_ROTATION_BLOCKED = 118;
 
     public static final double STEP_CLIP_MULTIPLIER = 0.4;
     public static final int ENTITY_COORDINATES_MAX_VALUE = 2100000000;
@@ -939,7 +943,7 @@ public abstract class Entity extends Location implements Metadatable {
             FloatEntityData bbW = new FloatEntityData(DATA_BOUNDING_BOX_WIDTH, this.getWidth());
             this.dataProperties.put(bbH);
             this.dataProperties.put(bbW);
-            sendData(this.hasSpawned.values().toArray(new Player[0]), new EntityMetadata().put(bbH).put(bbW));
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), new EntityMetadata().put(bbH).put(bbW));
         }
     }
 
@@ -1817,6 +1821,7 @@ public abstract class Entity extends Location implements Metadatable {
         Server.broadcastPacket(hasSpawned.values().stream().filter(p -> p.protocol >= ProtocolInfo.v1_19_0).collect(Collectors.toList()), pk);
     }
 
+    @Override
     public Vector3 getDirectionVector() {
         Vector3 vector = super.getDirectionVector();
         return this.temporalVector.setComponents(vector.x, vector.y, vector.z);
@@ -2239,15 +2244,8 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public boolean isInsideOfWater() {
-        /*Block block = this.level.getBlock(this.temporalVector.setComponents(NukkitMath.floorDouble(this.x), NukkitMath.floorDouble(this.y), NukkitMath.floorDouble(this.z)));
-
-        if (block instanceof BlockWater) {
-            return this.y < (block.y + 0.9);
-        }
-
-        return false;*/
-        int bid = level.getBlockIdAt(chunk, this.getFloorX(), this.getFloorY(), this.getFloorZ());
-        return Block.hasWater(bid);
+        Block block = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
+        return block.isWater() || block.getWaterloggingLevel() > 0 && block.getLevelBlockAtLayer(1).isWater();
     }
 
     public boolean isInsideOfSolid() {
@@ -2716,9 +2714,6 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public boolean teleport(Location location, PlayerTeleportEvent.TeleportCause cause) {
-        double yaw = location.yaw;
-        double pitch = location.pitch;
-
         Location from = this.getLocation();
         Location to = location;
         if (cause != null) {
@@ -2742,7 +2737,7 @@ public abstract class Entity extends Location implements Metadatable {
             this.setMotion(this.temporalVector.setComponents(0, 0, 0));
         }
 
-        if (this.setPositionAndRotation(to, yaw, pitch)) {
+        if (this.setPositionAndRotation(to, to.yaw, to.pitch, to.headYaw)) {
             this.resetFallDistance();
             this.onGround = !this.isNoClip();
 
@@ -2820,7 +2815,7 @@ public abstract class Entity extends Location implements Metadatable {
             if (data.getId() == DATA_FLAGS2) {
                 metadata.put(this.dataProperties.get(DATA_FLAGS));
             }
-            this.sendData(this.hasSpawned.values().toArray(new Player[0]), metadata);
+            this.sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), metadata);
         }
         return true;
     }

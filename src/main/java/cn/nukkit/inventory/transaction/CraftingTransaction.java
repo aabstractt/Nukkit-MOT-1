@@ -9,7 +9,7 @@ import cn.nukkit.inventory.transaction.action.SlotChangeAction;
 import cn.nukkit.item.Item;
 import cn.nukkit.network.protocol.ContainerClosePacket;
 import cn.nukkit.network.protocol.types.ContainerIds;
-import cn.nukkit.scheduler.Task;
+import cn.nukkit.plugin.InternalPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,26 +95,31 @@ public class CraftingTransaction extends InventoryTransaction {
         this.recipe = recipe instanceof CraftingRecipe ? (CraftingRecipe) recipe : null;
     }
 
+    @Override
     public boolean canExecute() {
         CraftingManager craftingManager = source.getServer().getCraftingManager();
         Inventory inventory;
-        switch (craftingType) {
-            case Player.CRAFTING_SMITHING -> {
-                inventory = source.getWindowById(Player.SMITHING_WINDOW_ID);
-                if (inventory instanceof SmithingInventory smithingInventory) {
-                    addInventory(inventory);
-                    SmithingRecipe smithingRecipe = smithingInventory.matchRecipe();
-                    if (smithingRecipe != null && this.primaryOutput.equals(smithingRecipe.getFinalResult(smithingInventory.getEquipment(), smithingInventory.getTemplate()), true, true)) {
-                        setTransactionRecipe(smithingRecipe);
-                    }
+        if (craftingType == Player.CRAFTING_SMITHING) {
+            inventory = source.getWindowById(Player.SMITHING_WINDOW_ID);
+            if (inventory instanceof SmithingInventory smithingInventory) {
+                addInventory(inventory);
+                SmithingRecipe smithingRecipe = smithingInventory.matchRecipe();
+                if (smithingRecipe != null && this.primaryOutput.equals(smithingRecipe.getFinalResult(smithingInventory.getEquipment(), smithingInventory.getTemplate()), true, true)) {
+                    setTransactionRecipe(smithingRecipe);
                 }
             }
-            default ->
+        } else {
+            MultiRecipe multiRecipe = Server.getInstance().getCraftingManager().getMultiRecipe(this.source, this.getPrimaryOutput(), this.getInputList());
+            if (multiRecipe != null) {
+                setTransactionRecipe(multiRecipe.toRecipe(this.getPrimaryOutput(), this.getInputList()));
+            } else {
                 setTransactionRecipe(craftingManager.matchRecipe(source.protocol, inputs, this.primaryOutput, this.secondaryOutputs));
+            }
         }
         return this.getTransactionRecipe() != null && super.canExecute();
     }
 
+    @Override
     protected boolean callExecuteEvent() {
         CraftItemEvent ev;
 
@@ -122,6 +127,7 @@ public class CraftingTransaction extends InventoryTransaction {
         return !ev.isCancelled();
     }
 
+    @Override
     protected void sendInventories() {
         super.sendInventories();
 
@@ -134,16 +140,12 @@ public class CraftingTransaction extends InventoryTransaction {
         ContainerClosePacket pk = new ContainerClosePacket();
         pk.windowId = ContainerIds.NONE;
         pk.wasServerInitiated = true;
-        source.getServer().getScheduler().scheduleDelayedTask(new Task() {
-            @Override
-            public void onRun(int currentTick) {
-                source.dataPacket(pk);
-            }
-        }, 10);
+        source.getServer().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> source.dataPacket(pk), 10);
 
         this.source.resetCraftingGridType();
     }
 
+    @Override
     public boolean execute() {
         if (super.execute()) {
             if (Server.getInstance().achievementsEnabled) {

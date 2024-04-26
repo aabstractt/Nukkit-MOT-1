@@ -62,6 +62,7 @@ public abstract class EntityProjectile extends Entity {
         return NukkitMath.ceilDouble(Math.sqrt(this.motionX * this.motionX + this.motionY * this.motionY + this.motionZ * this.motionZ) * getDamage());
     }
 
+    @Override
     public boolean attack(EntityDamageEvent source) {
         return source.getCause() == DamageCause.VOID && super.attack(source);
     }
@@ -187,19 +188,21 @@ public abstract class EntityProjectile extends Entity {
             this.move(this.motionX, this.motionY, this.motionZ);
 
             if (this.isCollided && !this.hadCollision) { //collide with block
-                this.hadCollision = true;
-
-                this.motionX = 0;
-                this.motionY = 0;
-                this.motionZ = 0;
-
                 ProjectileHitEvent hitEvent = new ProjectileHitEvent(this, MovingObjectPosition.fromBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ(), -1, this));
                 this.server.getPluginManager().callEvent(hitEvent);
                 if (!hitEvent.isCancelled()) {
+                    this.hadCollision = true;
+
+                    this.motionX = 0;
+                    this.motionY = 0;
+                    this.motionZ = 0;
+
                     this.onHit();
                     this.onHitGround(moveVector);
+
+                    return true;
                 }
-				
+
                 this.close();
                 return false;
             } else if (!this.isCollided && this.hadCollision) {
