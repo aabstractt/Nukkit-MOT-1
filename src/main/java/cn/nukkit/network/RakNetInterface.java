@@ -70,6 +70,7 @@ public class RakNetInterface implements AdvancedSourceInterface {
                 .channelFactory(RakChannelFactory.server(transport.datagramChannel))
                 .group(group)
                 .option(RakChannelOption.RAK_GUID, this.serverId)
+                .option(RakChannelOption.RAK_PACKET_LIMIT, 10000)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{8, 9, 10, 11})
                 .childOption(RakChannelOption.RAK_ORDERING_CHANNELS, 1)
                 .option(RakChannelOption.RAK_SEND_COOKIE, true)

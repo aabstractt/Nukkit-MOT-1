@@ -200,6 +200,8 @@ public abstract class EntityProjectile extends Entity {
                     this.onHit();
                     this.onHitGround(moveVector);
 
+                    this.close();
+
                     return true;
                 }
 
