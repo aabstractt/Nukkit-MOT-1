@@ -43,6 +43,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.*;
 
+import static org.cloudburstmc.protocol.common.util.Preconditions.checkArgument;
+
 /**
  * BinaryStream
  *
@@ -418,6 +420,13 @@ public class BinaryStream {
         return new SerializedImage(width, height, data);
     }
 
+    public SerializedImage getImage(int maxSize) {
+        int width = this.getLInt();
+        int height = this.getLInt();
+        byte[] data = this.getByteArray(maxSize);
+        return new SerializedImage(width, height, data);
+    }
+
     public Skin getSkin() {
         Server.mvw("BinaryStream#getSkin()");
         return getSkin(ProtocolInfo.CURRENT_PROTOCOL);
@@ -430,18 +439,18 @@ public class BinaryStream {
             skin.setPlayFabId(this.getString());
         }
         skin.setSkinResourcePatch(this.getString());
-        skin.setSkinData(this.getImage());
+        skin.setSkinData(this.getImage(Skin.SKIN_PERSONA_SIZE));
 
         int animationCount = this.getLInt();
         for (int i = 0; i < Math.min(animationCount, 1024); i++) {
-            SerializedImage image = this.getImage();
+            SerializedImage image = this.getImage(Skin.SKIN_128_128_SIZE);
             int type = this.getLInt();
             float frames = this.getLFloat();
             int expression = protocol >= ProtocolInfo.v1_16_100 ? this.getLInt() : 0;
             skin.getAnimations().add(new SkinAnimation(image, type, frames, expression));
         }
 
-        skin.setCapeData(this.getImage());
+        skin.setCapeData(this.getImage(Skin.SINGLE_SKIN_SIZE));
         skin.setGeometryData(this.getString());
         if (protocol >= ProtocolInfo.v1_17_30) {
             skin.setGeometryDataEngineVersion(this.getString());
@@ -710,7 +719,7 @@ public class BinaryStream {
         if (id != null && id < 256 && id != 166) { // ItemBlock
             int fullId = GlobalBlockPalette.getLegacyFullId(protocolId, blockRuntimeId);
             if (fullId != -1) {
-                damage = fullId & 0x3f;
+                damage = fullId & Block.DATA_MASK;
             }
         }
 
@@ -1093,7 +1102,7 @@ public class BinaryStream {
 
         if (!instanceItem) {
             this.putBoolean(true);
-            this.putVarInt(1);
+            this.putVarInt(1); // Item is present
         }
 
         Block block = isBlock ? item.getBlockUnsafe() : null;
@@ -1141,8 +1150,7 @@ public class BinaryStream {
                 stream.writeLong(0);
             }
 
-            byte[] bytes = new byte[userDataBuf.readableBytes()];
-            userDataBuf.readBytes(bytes);
+            byte[] bytes = Utils.convertByteBuf2Array(userDataBuf);
             putByteArray(bytes);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to write item user data", e);
@@ -1254,6 +1262,14 @@ public class BinaryStream {
 
     public byte[] getByteArray() {
         return this.get((int) this.getUnsignedVarInt());
+    }
+
+    public byte[] getByteArray(int maxLength) {
+        int length = (int) this.getUnsignedVarInt();
+        checkArgument(this.isReadable(length),
+                "Tried to read %s bytes but only has %s readable", length, this.readableBytes());
+        checkArgument(maxLength <= 0 || length <= maxLength, "Tried to read %s bytes but maximum is %s", length, maxLength);
+        return this.get(length);
     }
 
     public void putByteArray(byte[] b) {
@@ -1534,6 +1550,14 @@ public class BinaryStream {
 
     public <T> void putOptionalNull(T object, BiConsumer<BinaryStream, T> consumer) {
         this.putOptional(Objects::nonNull, object, consumer);
+    }
+
+    public boolean isReadable(int length) {
+        return this.count - this.offset >= length;
+    }
+
+    public int readableBytes() {
+        return this.count - this.offset;
     }
 
     public boolean feof() {
