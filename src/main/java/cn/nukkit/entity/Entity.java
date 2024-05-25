@@ -903,7 +903,7 @@ public abstract class Entity extends Location implements Metadatable {
 
     public void addEffect(Effect effect) {
         if (effect == null) {
-            return; //here add null means add nothing
+            throw new RuntimeException("Effect cannot be null");
         }
 
         Effect oldEffect = this.getEffect(effect.getId());

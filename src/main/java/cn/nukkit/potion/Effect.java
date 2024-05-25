@@ -271,24 +271,21 @@ public class Effect implements Cloneable {
 
         if (this.id == Effect.SPEED) {
 //            System.out.println("Applying speed!");
-//            if (oldEffect != null) {
-//                entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() / (1 + 0.2f * (oldEffect.amplifier + 1)));
-//                System.out.println("Removing old effect!");
-//            }
-//
-//            entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() * (1 + 0.2f * (this.amplifier + 1)));
+            if (oldEffect != null) {
+                entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() / (1 + 0.2f * (oldEffect.amplifier + 1)));
+            }
 
-            float speed = entityLiving.getMovementSpeed() * (1 + 0.2f * (this.amplifier + 1));
-
-            entityLiving.setMovementSpeed(speed);
+            entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() * (1 + 0.2f * (this.amplifier + 1)));
         }
 
         if (this.id == Effect.SLOWNESS) {
-            /*if (oldEffect != null) {
-                player.setMovementSpeed(player.getMovementSpeed() / (1 - 0.15f * (oldEffect.amplifier + 1)), false);
+            if (oldEffect != null) {
+                entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() / (1 - 0.15f * (oldEffect.amplifier + 1)));
             }
-            player.setMovementSpeed(player.getMovementSpeed() * (1 - 0.15f * (this.amplifier + 1)));*/
-            entityLiving.setMovementSpeed(Player.DEFAULT_SPEED * (1 - 0.15f * (this.amplifier + 1)));
+
+            entityLiving.setMovementSpeed(entityLiving.getMovementSpeed() * (1 - 0.15f * (this.amplifier + 1)));
+
+//            entityLiving.setMovementSpeed(Player.DEFAULT_SPEED * (1 - 0.15f * (this.amplifier + 1)));
         }
 
         if (this.id == Effect.INVISIBILITY) {

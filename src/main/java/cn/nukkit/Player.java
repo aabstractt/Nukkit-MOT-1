@@ -5633,9 +5633,11 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     public void setMovementSpeed(float speed, boolean send) {
         super.setMovementSpeed(speed);
-        if (this.spawned && send) {
-            this.setAttribute(Attribute.getAttribute(Attribute.MOVEMENT_SPEED).setValue(speed).setDefaultValue(speed));
+        if (!this.spawned || !send) {
+            return;
         }
+
+        this.setAttribute(Attribute.getAttribute(Attribute.MOVEMENT_SPEED).setValue(speed).setDefaultValue(speed));
     }
 
     public void sendMovementSpeed(float speed) {
