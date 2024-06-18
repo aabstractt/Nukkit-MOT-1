@@ -70,7 +70,6 @@ public class RakNetInterface implements AdvancedSourceInterface {
                 .channelFactory(RakChannelFactory.server(transport.datagramChannel))
                 .group(group)
                 .option(RakChannelOption.RAK_GUID, this.serverId)
-                .option(RakChannelOption.RAK_PACKET_LIMIT, 10000)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{8, 9, 10, 11})
                 .childOption(RakChannelOption.RAK_ORDERING_CHANNELS, 1)
                 .option(RakChannelOption.RAK_SEND_COOKIE, true)
@@ -185,17 +184,17 @@ public class RakNetInterface implements AdvancedSourceInterface {
     }
 
     @Override
-    public void blockAddress(InetAddress address) {
+    public void blockAddress(InetSocketAddress address) {
         this.channel.pipeline().get(RakServerRateLimiter.class).blockAddress(address, 100, TimeUnit.DAYS);
     }
 
     @Override
-    public void blockAddress(InetAddress address, int timeout) {
+    public void blockAddress(InetSocketAddress address, int timeout) {
         this.channel.pipeline().get(RakServerRateLimiter.class).blockAddress(address, timeout, TimeUnit.SECONDS);
     }
 
     @Override
-    public void unblockAddress(InetAddress address) {
+    public void unblockAddress(InetSocketAddress address) {
         this.channel.pipeline().get(RakServerRateLimiter.class).unblockAddress(address);
     }
 

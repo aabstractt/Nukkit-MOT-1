@@ -1019,12 +1019,6 @@ public class Server {
         this.reloadWhitelist();
         this.operators.reload();
 
-        for (BanEntry entry : this.banByIP.getEntires().values()) {
-            try {
-                this.network.blockAddress(InetAddress.getByName(entry.getName()), -1);
-            } catch (UnknownHostException ignore) {}
-        }
-
         this.pluginManager.registerInterface(JavaPluginLoader.class);
         if (this.enableSpark) {
             SparkInstaller.initSpark(this);
@@ -1110,12 +1104,6 @@ public class Server {
             this.queryHandler = new QueryHandler();
         }
 
-        for (BanEntry entry : this.banByIP.getEntires().values()) {
-            try {
-                this.network.blockAddress(InetAddress.getByName(entry.getName()), -1);
-            } catch (UnknownHostException ignore) {}
-        }
-
         this.tickCounter = 0;
 
         log.info(this.baseLang.translateString("nukkit.server.startFinished", String.valueOf((double) (System.currentTimeMillis() - Nukkit.START_TIME) / 1000)));
@@ -1141,7 +1129,7 @@ public class Server {
         } catch (Exception e) {
             log.error("Error whilst handling packet", e);
 
-            this.network.blockAddress(address.getAddress(), -1);
+            this.network.blockAddress(address, -1);
         }
     }
 

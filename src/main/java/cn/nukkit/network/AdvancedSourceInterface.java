@@ -11,11 +11,11 @@ import java.net.InetSocketAddress;
  */
 public interface AdvancedSourceInterface extends SourceInterface {
 
-    void blockAddress(InetAddress address);
+    void blockAddress(InetSocketAddress address);
 
-    void blockAddress(InetAddress address, int timeout);
+    void blockAddress(InetSocketAddress address, int timeout);
 
-    void unblockAddress(InetAddress address);
+    void unblockAddress(InetSocketAddress address);
 
     void setNetwork(Network network);
 

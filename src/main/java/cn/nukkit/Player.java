@@ -2962,7 +2962,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                 if (!loginChainData.isXboxAuthed() && server.xboxAuth) {
                     this.close("", "disconnectionScreen.notAuthenticated");
                     if (server.banXBAuthFailed) {
-                        this.server.getNetwork().blockAddress(this.socketAddress.getAddress(), 5);
+                        this.server.getNetwork().blockAddress(this.socketAddress, 5);
                         this.server.getLogger().notice("Blocked " + getAddress() + " for 5 seconds due to failed Xbox auth");
                     }
                     break;

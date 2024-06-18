@@ -100,9 +100,5 @@ public class BanIpCommand extends VanillaCommand {
                 player.kick(PlayerKickEvent.Reason.IP_BANNED, !reason.isEmpty() ? reason : "IP banned", true, "source=" + sender.getName() + ", reason=" + reason);
             }
         }
-
-        try {
-            sender.getServer().getNetwork().blockAddress(InetAddress.getByName(ip), -1);
-        } catch (UnknownHostException ignore) {}
     }
 }

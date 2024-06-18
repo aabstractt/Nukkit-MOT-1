@@ -334,19 +334,19 @@ public class Network {
         }
     }
 
-    public void blockAddress(InetAddress address) {
+    public void blockAddress(InetSocketAddress address) {
         for (AdvancedSourceInterface sourceInterface : this.advancedInterfaces) {
             sourceInterface.blockAddress(address);
         }
     }
 
-    public void blockAddress(InetAddress address, int timeout) {
+    public void blockAddress(InetSocketAddress address, int timeout) {
         for (AdvancedSourceInterface sourceInterface : this.advancedInterfaces) {
             sourceInterface.blockAddress(address, timeout);
         }
     }
 
-    public void unblockAddress(InetAddress address) {
+    public void unblockAddress(InetSocketAddress address) {
         for (AdvancedSourceInterface sourceInterface : this.advancedInterfaces) {
             sourceInterface.unblockAddress(address);
         }
