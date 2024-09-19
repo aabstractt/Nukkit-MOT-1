@@ -160,6 +160,12 @@ public class Server {
 
     private int maxPlayers;
     private boolean autoSave = true;
+    /**
+     * Automatic compression of the world
+     */
+    private boolean autoCompaction = true;
+    private int autoCompactionTicks = 60 * 30 * 20;
+
     private RCON rcon;
 
     private final EntityMetadataStore entityMetadata;
@@ -643,6 +649,9 @@ public class Server {
         this.maxPlayers = this.getPropertyInt("max-players", 50);
         this.setAutoSave(this.getPropertyBoolean("auto-save", true));
 
+        this.autoCompaction = this.getPropertyBoolean("level-auto-compaction", true);
+        this.autoCompactionTicks = Math.max(60 * 20, this.getPropertyInt("level-auto-compaction-ticks", 60 * 30 * 20));
+
         if (this.isHardcore && this.difficulty < 3) {
             this.setDifficulty(3);
         } else {
@@ -715,10 +724,10 @@ public class Server {
 
         this.pluginManager.loadInternalPlugin();
         if (loadPlugins) {
+            this.pluginManager.loadPlugins(this.pluginPath);
             if (this.enableSpark) {
                 SparkInstaller.initSpark(this);
             }
-            this.pluginManager.loadPlugins(this.pluginPath);
             this.enablePlugins(PluginLoadOrder.STARTUP);
         }
 
@@ -1035,10 +1044,10 @@ public class Server {
         this.operators.reload();
 
         this.pluginManager.registerInterface(JavaPluginLoader.class);
+        this.pluginManager.loadPlugins(this.pluginPath);
         if (this.enableSpark) {
             SparkInstaller.initSpark(this);
         }
-        this.pluginManager.loadPlugins(this.pluginPath);
         this.enablePlugins(PluginLoadOrder.STARTUP);
         this.enablePlugins(PluginLoadOrder.POSTWORLD);
     }
@@ -1292,7 +1301,9 @@ public class Server {
     }
 
     public void sendRecipeList(Player player) {
-        if (player.protocol >= ProtocolInfo.v1_21_20) {
+        if (player.protocol >= ProtocolInfo.v1_21_30) {
+            player.dataPacket(CraftingManager.packet729);
+        } else if (player.protocol >= ProtocolInfo.v1_21_20) {
             player.dataPacket(CraftingManager.packet712);
         } else if (player.protocol >= ProtocolInfo.v1_21_0) {
             player.dataPacket(CraftingManager.packet685);
@@ -1617,6 +1628,19 @@ public class Server {
         }
     }
 
+    public boolean isAutoCompactionEnabled() {
+        return this.autoCompaction;
+    }
+
+    public void setAutoCompactionTicks(int ticks) {
+        Preconditions.checkArgument(ticks > 0, "ticks");
+        this.autoCompactionTicks = ticks;
+    }
+
+    public int getAutoCompactionTicks() {
+        return this.autoCompactionTicks;
+    }
+
     public String getLevelType() {
         return this.getPropertyString("level-type", "default");
     }
@@ -1881,7 +1905,7 @@ public class Server {
             Optional<UUID> uuid = lookupName(name);
             return getOfflinePlayerDataInternal(uuid.map(UUID::toString).orElse(name), true, create);
         } else {
-            return getOfflinePlayerDataInternal(name, true, create);
+            return getOfflinePlayerDataInternal(name.toLowerCase(), true, create);
         }
     }
 
@@ -3191,6 +3215,9 @@ public class Server {
             put("rcon.port", 25575);
 
             put("auto-save", true);
+            put("level-auto-compaction", true);
+            put("level-auto-compaction-ticks", 60 * 30 * 20);
+
             put("force-resources", false);
             put("force-resources-allow-client-packs", false);
             put("xbox-auth", true);

@@ -237,6 +237,7 @@ public class Level implements ChunkManager, Metadatable {
     private final int chunkPopulationQueueSize;
 
     private boolean autoSave;
+    private boolean autoCompaction;
     @Getter
     @Setter
     private boolean saveOnUnloadEnabled = true;
@@ -265,7 +266,9 @@ public class Level implements ChunkManager, Metadatable {
 
     // Notice: These shouldn't be used in the internal methods
     // Check the dimension id instead
+    @Deprecated
     public final boolean isNether;
+    @Deprecated
     public final boolean isEnd;
 
     private final Class<? extends Generator> generatorClass;
@@ -319,6 +322,7 @@ public class Level implements ChunkManager, Metadatable {
         this.blockMetadata = new BlockMetadataStore(this);
         this.server = server;
         this.autoSave = server.getAutoSave();
+        this.autoCompaction = server.isAutoCompactionEnabled();
 
         try {
             this.provider = provider.getConstructor(Level.class, String.class).newInstance(this, path);
@@ -773,6 +777,14 @@ public class Level implements ChunkManager, Metadatable {
 
     public void setAutoSave(boolean autoSave) {
         this.autoSave = autoSave;
+    }
+
+    public boolean isAutoCompaction() {
+        return this.autoCompaction && this.autoSave;
+    }
+
+    public void setAutoCompaction(boolean autoCompaction) {
+        this.autoCompaction = autoCompaction;
     }
 
     public boolean unload() {
@@ -4451,6 +4463,18 @@ public class Level implements ChunkManager, Metadatable {
         return this.dimensionData.getDimensionId();
     }
 
+    public final boolean isOverWorld() {
+        return this.getDimension() == DIMENSION_OVERWORLD;
+    }
+
+    public final boolean isNether() {
+        return this.getDimension() == DIMENSION_NETHER;
+    }
+
+    public final boolean isTheEnd() {
+        return this.getDimension() == DIMENSION_THE_END;
+    }
+
     public final boolean isYInRange(int y) {
         return y >= getMinBlockY() && y <= getMaxBlockY();
     }
@@ -4981,7 +5005,9 @@ public class Level implements ChunkManager, Metadatable {
     }
 
     private int getChunkProtocol(int protocol) {
-        if (protocol >= ProtocolInfo.v1_21_20) {
+        if (protocol >= ProtocolInfo.v1_21_30) {
+            return ProtocolInfo.v1_21_30;
+        } else if (protocol >= ProtocolInfo.v1_21_20) {
             return ProtocolInfo.v1_21_20;
         } else if (protocol >= ProtocolInfo.v1_21_0) {
             return ProtocolInfo.v1_21_0;
@@ -5094,7 +5120,8 @@ public class Level implements ChunkManager, Metadatable {
         if (chunk == ProtocolInfo.v1_20_80) if (player == ProtocolInfo.v1_20_80) return true;
         if (chunk == ProtocolInfo.v1_21_0)
             if (player >= ProtocolInfo.v1_21_0) if (player < ProtocolInfo.v1_21_20) return true;
-        if (chunk == ProtocolInfo.v1_21_20) if (player >= ProtocolInfo.v1_21_20) return true;
+        if (chunk == ProtocolInfo.v1_21_20) if (player < ProtocolInfo.v1_21_30) return true;
+        if (chunk == ProtocolInfo.v1_21_30) if (player >= ProtocolInfo.v1_21_30) return true;
         return false; //TODO Multiversion  Remember to update when block palette changes
     }
 

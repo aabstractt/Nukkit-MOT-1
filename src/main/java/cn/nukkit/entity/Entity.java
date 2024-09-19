@@ -72,6 +72,10 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_TYPE_LONG = 7;
     public static final int DATA_TYPE_VECTOR3F = 8;
 
+    /**
+     * 0~63 DATA_FLAGS
+     * 64~128 DATA_FLAGS_EXTENDED (DATA_FLAGS2)
+     */
     public static final int DATA_FLAGS = 0;
     public static final int DATA_HEALTH = 1; //int (minecart/boat)
     public static final int DATA_VARIANT = 2; //int
@@ -808,7 +812,7 @@ public abstract class Entity extends Location implements Metadatable {
     public void setCrawling(boolean value) {
         if (this.crawling != value) {
             this.crawling = value;
-            this.setDataFlag(DATA_FLAGS, DATA_FLAG_CRAWLING, value);
+            this.setDataFlag(DATA_FLAGS_EXTENDED, DATA_FLAG_CRAWLING, value);
             this.recalculateBoundingBox(true);
         }
     }
@@ -1398,7 +1402,7 @@ public abstract class Entity extends Location implements Metadatable {
 
         addEntity.links = new EntityLink[this.passengers.size()];
         for (int i = 0; i < addEntity.links.length; i++) {
-            addEntity.links[i] = new EntityLink(this.id, this.passengers.get(i).id, i == 0 ? EntityLink.TYPE_RIDER : TYPE_PASSENGER, false, false);
+            addEntity.links[i] = new EntityLink(this.id, this.passengers.get(i).id, i == 0 ? EntityLink.TYPE_RIDER : TYPE_PASSENGER, false, false, 0f);
         }
 
         return addEntity;
