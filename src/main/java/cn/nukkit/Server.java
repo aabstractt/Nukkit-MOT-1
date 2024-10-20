@@ -1,7 +1,7 @@
 package cn.nukkit;
 
 import cn.nukkit.block.Block;
-import cn.nukkit.block.customblock.CustomBlockManager;
+import cn.nukkit.block.custom.CustomBlockManager;
 import cn.nukkit.blockentity.*;
 import cn.nukkit.command.*;
 import cn.nukkit.console.NukkitConsole;
@@ -20,7 +20,6 @@ import cn.nukkit.entity.weather.EntityLightning;
 import cn.nukkit.event.HandlerList;
 import cn.nukkit.event.level.LevelInitEvent;
 import cn.nukkit.event.level.LevelLoadEvent;
-import cn.nukkit.event.server.BatchPacketsEvent;
 import cn.nukkit.event.server.PlayerDataSerializeEvent;
 import cn.nukkit.event.server.QueryRegenerateEvent;
 import cn.nukkit.event.server.ServerStopEvent;
@@ -957,22 +956,11 @@ public class Server {
     }
 
     public void batchPackets(Player[] players, DataPacket[] packets) {
-        this.batchPackets(players, packets, false);
+        this.batchingHelper.batchPackets(players, packets);
     }
 
+    @Deprecated
     public void batchPackets(Player[] players, DataPacket[] packets, boolean forceSync) {
-        if (players == null || packets == null || players.length == 0 || packets.length == 0) {
-            return;
-        }
-
-        if (callBatchPkEv) {
-            BatchPacketsEvent ev = new BatchPacketsEvent(players, packets, forceSync);
-            pluginManager.callEvent(ev);
-            if (ev.isCancelled()) {
-                return;
-            }
-        }
-
         this.batchingHelper.batchPackets(players, packets);
     }
 
@@ -2710,7 +2698,7 @@ public class Server {
      * @return is operator
      */
     public boolean isOp(String name) {
-        return this.operators.exists(name, true);
+        return name != null && this.operators.exists(name, true);
     }
 
     /**
@@ -3055,7 +3043,7 @@ public class Server {
      */
     private void loadSettings() {
         this.forceLanguage = this.getPropertyBoolean("force-language", false);
-        this.networkCompressionLevel = Math.max(Math.min(this.getPropertyInt("compression-level", 4), 9), 0);
+        this.networkCompressionLevel = Math.max(Math.min(this.getPropertyInt("compression-level", 5), 9), 0);
         this.chunkCompressionLevel = Math.max(Math.min(this.getPropertyInt("chunk-compression-level", 7), 9), 1);
         this.autoTickRate = this.getPropertyBoolean("auto-tick-rate", true);
         this.autoTickRateLimit = this.getPropertyInt("auto-tick-rate-limit", 20);
@@ -3241,7 +3229,7 @@ public class Server {
             put("async-workers", "auto");
 
             put("zlib-provider", 2);
-            put("compression-level", 4);
+            put("compression-level", 5);
             put("compression-threshold", "256");
             put("use-snappy-compression", false);
             put("rak-packet-limit", RakConstants.DEFAULT_PACKET_LIMIT);
