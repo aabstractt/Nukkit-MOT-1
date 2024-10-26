@@ -37,6 +37,9 @@ public class EnchantmentProtectionAll extends EnchantmentProtection {
             return 0;
         }
 
-        return (float) (getLevel() * getTypeModifier());
+        return (float) Math.floor(2 + this.getLevel() * this.getTypeModifier() / 3);
+
+        // original code:
+//        return (float) (getLevel() * getTypeModifier());
     }
 }

@@ -12,6 +12,7 @@ import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.utils.Binary;
 import cn.nukkit.utils.BinaryStream;
+import cn.nukkit.utils.TextFormat;
 import com.google.common.base.Preconditions;
 import com.nukkitx.natives.sha256.Sha256;
 import com.nukkitx.natives.util.Natives;
@@ -31,6 +32,7 @@ import org.cloudburstmc.netty.handler.codec.raknet.common.RakSessionCodec;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -152,9 +154,9 @@ public class RakNetPlayerSession extends SimpleChannelInboundHandler<RakMessage>
             } catch (Exception e) {
                 Server.getInstance().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> {
                     try {
-                        InetAddress address = this.channel.remoteAddress().getAddress();
+                        InetSocketAddress address = this.channel.remoteAddress();
                         this.channel.unsafe().close(this.channel.voidPromise());
-                        if (!address.isSiteLocalAddress()) {
+                        if (!address.getAddress().isSiteLocalAddress()) {
                             this.server.blockAddress(address, 60);
                         }
                     } catch (Throwable throwable) {
@@ -202,7 +204,13 @@ public class RakNetPlayerSession extends SimpleChannelInboundHandler<RakMessage>
         }
 
         if (!(packet instanceof BatchPacket)) {
-            packet.tryEncode();
+            try {
+                packet.tryEncode();
+            } catch (Exception e) {
+                this.player.close(TextFormat.RED + "An error occurred whilst handling your connection");
+
+                log.error("[{}] Unable to encode packet", this.player.getName(), e);
+            }
         }
         this.outbound.offer(packet);
     }

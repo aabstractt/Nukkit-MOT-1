@@ -62,19 +62,25 @@ public class ItemBow extends ItemTool {
 
     @Override
     public boolean onRelease(Player player, int ticksUsed) {
-        Item itemArrow = Item.get(Item.ARROW, 0, 1);
+        Item itemArrow;
 
-        Inventory inventory = player.getOffhandInventory();
+        Inventory offhandInventory = player.getOffhandInventory();
+        Inventory playerInventory = player.getInventory();
 
-        if ((itemArrow = this.getArrow(inventory)) == null &&
-                (itemArrow = this.getArrow(inventory = player.getInventory())) == null) {
-            if (player.isCreative()) {
-                itemArrow = Item.get(Item.ARROW, 0, 1);
-            } else {
-                player.getOffhandInventory().sendContents(player);
-                inventory.sendContents(player);
-                return false;
-            }
+        Inventory inventoryWithArrow;
+        if ((itemArrow = this.getArrow(offhandInventory)) != null) {
+            inventoryWithArrow = offhandInventory;
+        } else if ((itemArrow = this.getArrow(playerInventory)) != null) {
+            inventoryWithArrow = playerInventory;
+        } else if (player.isCreative()) {
+            inventoryWithArrow = playerInventory;
+
+            itemArrow = Item.get(Item.ARROW, 0, 1);
+        } else {
+            offhandInventory.sendContents(player);
+            playerInventory.sendContents(player);
+
+            return false;
         }
 
         double damage = 2;
@@ -113,54 +119,60 @@ public class ItemBow extends ItemTool {
 
         double p = (double) ticksUsed / 20;
 
-        double f = Math.min((p * p + p * 2) / 3, 1) * 2.8;
+        double f = Math.min(((p * p) + p * 2) / 3, 1) * 2.8;
         EntityShootBowEvent entityShootBowEvent = new EntityShootBowEvent(player, this, new EntityArrow(player.chunk, nbt, player, f == 2), f);
 
-        if (f < 0.1 || ticksUsed < 3) {
-            entityShootBowEvent.setCancelled();
-        }
+//        if (f < 0.1 || ticksUsed < 3) {
+//            entityShootBowEvent.setCancelled();
+//        }
 
         Server.getInstance().getPluginManager().callEvent(entityShootBowEvent);
+
+        EntityProjectile projectile = entityShootBowEvent.getProjectile();
+        if (projectile == null) {
+            throw new AssertionError("EntityShootBowEvent did not set the projectile");
+        }
+
         if (entityShootBowEvent.isCancelled()) {
-            entityShootBowEvent.getProjectile().close();
+            projectile.close();
             player.getInventory().sendContents(player);
             player.getOffhandInventory().sendContents(player);
-        } else {
-            entityShootBowEvent.getProjectile().setMotion(entityShootBowEvent.getProjectile().getMotion().multiply(entityShootBowEvent.getForce()));
-            Enchantment infinityEnchant = this.getEnchantment(Enchantment.ID_BOW_INFINITY);
-            boolean infinity = infinityEnchant != null && infinityEnchant.getLevel() > 0;
-            EntityProjectile projectile;
-            if (infinity && (projectile = entityShootBowEvent.getProjectile()) instanceof EntityArrow) {
-                ((EntityArrow) projectile).setPickupMode(EntityArrow.PICKUP_CREATIVE);
-            }
-            if (!player.isCreative()) {
-                if (!infinity || itemArrow.getDamage() != ItemArrow.NORMAL_ARROW) {
-                    inventory.removeItem(itemArrow);
-                }
 
-                if (!this.isUnbreakable()) {
-                    Enchantment durability = this.getEnchantment(Enchantment.ID_DURABILITY);
-                    if (!(durability != null && durability.getLevel() > 0 && (100 / (durability.getLevel() + 1)) <= Utils.random.nextInt(100))) {
-                        this.setDamage(this.getDamage() + 2);
-                        if (this.getDamage() >= getMaxDurability()) {
-                            this.count--;
-                        }
-                        player.getInventory().setItemInHand(this);
+            return true;
+        }
+
+        projectile.setMotion(projectile.getMotion().multiply(entityShootBowEvent.getForce()));
+        Enchantment infinityEnchant = this.getEnchantment(Enchantment.ID_BOW_INFINITY);
+        boolean infinity = infinityEnchant != null && infinityEnchant.getLevel() > 0;
+        if (infinity && projectile instanceof EntityArrow) {
+            ((EntityArrow) projectile).setPickupMode(EntityArrow.PICKUP_CREATIVE);
+        }
+
+        if (!player.isCreative()) {
+            if (!infinity || itemArrow.getDamage() != ItemArrow.NORMAL_ARROW) {
+                inventoryWithArrow.removeItem(itemArrow);
+            }
+
+            if (!this.isUnbreakable()) {
+                Enchantment durability = this.getEnchantment(Enchantment.ID_DURABILITY);
+                if (!(durability != null && durability.getLevel() > 0 && (100 / (durability.getLevel() + 1)) <= Utils.random.nextInt(100))) {
+                    this.setDamage(this.getDamage() + 2);
+                    if (this.getDamage() >= getMaxDurability()) {
+                        this.count--;
                     }
-                }
-            }
 
-            if (entityShootBowEvent.getProjectile() != null) {
-                EntityProjectile proj = entityShootBowEvent.getProjectile();
-                ProjectileLaunchEvent projectev = new ProjectileLaunchEvent(proj);
-                Server.getInstance().getPluginManager().callEvent(projectev);
-                if (projectev.isCancelled()) {
-                    proj.close();
-                } else {
-                    proj.spawnToAll();
-                    player.getLevel().addLevelSoundEvent(player, LevelSoundEventPacket.SOUND_BOW);
+                    player.getInventory().setItemInHand(this);
                 }
             }
+        }
+
+        ProjectileLaunchEvent projectileLaunchEvent = new ProjectileLaunchEvent(projectile);
+        Server.getInstance().getPluginManager().callEvent(projectileLaunchEvent);
+        if (projectileLaunchEvent.isCancelled()) {
+            projectile.close();
+        } else {
+            projectile.spawnToAll();
+            player.getLevel().addLevelSoundEvent(player, LevelSoundEventPacket.SOUND_BOW);
         }
 
         return true;

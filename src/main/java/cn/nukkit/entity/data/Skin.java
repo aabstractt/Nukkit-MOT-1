@@ -73,6 +73,10 @@ public class Skin {
     private String geometryDataEngineVersion = "";
     private boolean overridingPlayerAppearance = true;
 
+    public boolean hasValidGeometryData() {
+        return this.geometryData.length() <= 1024 * 256;
+    }
+
     public boolean isValid() {
         return isValid(Server.getInstance().doNotLimitSkinGeometry);
     }

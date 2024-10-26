@@ -7,6 +7,7 @@ import cn.nukkit.command.exceptions.SelectorSyntaxException;
 import cn.nukkit.command.selector.args.ISelectorArgument;
 import cn.nukkit.command.selector.args.impl.*;
 import cn.nukkit.entity.Entity;
+import cn.nukkit.entity.EntityHuman;
 import cn.nukkit.utils.Utils;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -135,6 +136,7 @@ public class EntitySelectorAPI {
         switch (selectorType) {
             case ALL_PLAYERS, NEAREST_PLAYER ->
                 entities.removeIf(e -> !(e instanceof Player));
+            case ALL_ENTITIES -> entities.removeIf(e -> e instanceof EntityHuman); // Prevent human entities
             default -> {}
         }
         //没符合条件的实体了，return

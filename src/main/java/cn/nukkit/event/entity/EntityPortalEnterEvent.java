@@ -4,35 +4,47 @@ import cn.nukkit.entity.Entity;
 import cn.nukkit.event.Cancellable;
 import cn.nukkit.event.HandlerList;
 import cn.nukkit.level.Location;
+import cn.nukkit.level.Position;
+import lombok.Getter;
 import lombok.NonNull;
 
 public class EntityPortalEnterEvent extends EntityEvent implements Cancellable {
-    private static final HandlerList handlers = new HandlerList();
+
+    @Getter private static final HandlerList handlers = new HandlerList();
 
     private final PortalType type;
-    private @NonNull Location to;
+    private @NonNull Position to;
 
-    public static HandlerList getHandlers() {
-        return handlers;
-    }
+    /**
+     * If is allowed to spawn a portal at the destination.
+     */
+    private boolean canSpawnPortal = true;
 
-    public EntityPortalEnterEvent(Entity entity, PortalType type) {
+    public EntityPortalEnterEvent(@NonNull Entity entity, @NonNull PortalType type, @NonNull Position to) {
         this.entity = entity;
         this.type = type;
 
-        this.to = entity.getLocation();
+        this.to = to;
     }
 
     public PortalType getPortalType() {
         return type;
     }
 
-    public @NonNull Location getTo() {
+    public @NonNull Position getTo() {
         return to;
     }
 
-    public void setTo(@NonNull Location to) {
+    public void setTo(@NonNull Position to) {
         this.to = to;
+    }
+
+    public boolean canSpawnPortal() {
+        return this.canSpawnPortal;
+    }
+
+    public void setCanSpawnPortal(boolean canSpawnPortal) {
+        this.canSpawnPortal = canSpawnPortal;
     }
 
     public enum PortalType {

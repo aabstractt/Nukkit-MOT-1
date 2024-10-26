@@ -390,7 +390,9 @@ public class AvailableCommandsPacket extends DataPacket {
         SequencedHashSet<ChainedSubCommandData> subCommandData = new SequencedHashSet<>();
         LinkedHashSet<CommandEnum> enumsSet = new LinkedHashSet<>();
 
-        commands.forEach((name, data) -> {
+        this.commands.forEach((name, data) -> {
+            if (data == null || data.versions.isEmpty()) return;
+
             CommandData cmdData = data.versions.get(0);
 
             if (cmdData.aliases != null) {

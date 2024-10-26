@@ -15,6 +15,7 @@ import cn.nukkit.entity.mob.EntitySnowGolem;
 import cn.nukkit.entity.mob.EntityWither;
 import cn.nukkit.entity.passive.EntityIronGolem;
 import cn.nukkit.entity.projectile.EntityArrow;
+import cn.nukkit.entity.projectile.EntityEnderPearl;
 import cn.nukkit.entity.weather.EntityLightning;
 import cn.nukkit.event.block.BlockBreakEvent;
 import cn.nukkit.event.block.BlockPlaceEvent;
@@ -1050,7 +1051,11 @@ public class Level implements ChunkManager, Metadatable {
             }
         }
 
-        this.updateBlockEntities.removeIf(blockEntity -> !blockEntity.isValid() || !blockEntity.onUpdate());
+        for (BlockEntity blockEntity : this.updateBlockEntities) {
+            if (!blockEntity.isValid() || !blockEntity.onUpdate()) {
+                this.updateBlockEntities.remove(blockEntity);
+            }
+        }
 
         this.tickChunks();
 
@@ -1701,6 +1706,8 @@ public class Level implements ChunkManager, Metadatable {
                 for (int y = minY; y <= maxY; ++y) {
                     Block block = this.getBlock(entity != null ? entity.chunk : null, x, y, z, 0, false);
                     if (block != null && block.getId() != 0 && block.collidesWithBB(bb)) {
+                        if (entity instanceof EntityEnderPearl && block instanceof BlockFenceGate && ((BlockFenceGate) block).isOpen()) continue;
+
                         return true;
                     }
                 }
@@ -4887,13 +4894,13 @@ public class Level implements ChunkManager, Metadatable {
         double y;
         double z;
         if (this == nether) {
-            x = portal.getFloorX() << 3;
+            x = (double) portal.getFloorX() / 8;
             y = NukkitMath.clamp(portal.getFloorY(), 70, 246);
-            z = portal.getFloorZ() << 3;
+            z = portal.getFloorZ() * 8;
         } else {
-            x = portal.getFloorX() >> 3;
+            x = portal.getFloorX() / 8;
             y = NukkitMath.clamp(portal.getFloorY(), 70, 118);
-            z = portal.getFloorZ() >> 3;
+            z = portal.getFloorZ() / 8;
         }
         return new Position(x, y, z, this == nether ? Server.getInstance().getDefaultLevel() : nether);
     }

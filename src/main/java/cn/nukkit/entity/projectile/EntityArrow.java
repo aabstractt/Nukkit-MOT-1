@@ -43,7 +43,7 @@ public class EntityArrow extends EntitySlenderProjectile {
 
     @Override
     public float getWidth() {
-        return 0.05f;
+        return 0.25f;
     }
 
     @Override
@@ -53,7 +53,7 @@ public class EntityArrow extends EntitySlenderProjectile {
 
     @Override
     public float getHeight() {
-        return 0.05f;
+        return 0.25f;
     }
 
     @Override

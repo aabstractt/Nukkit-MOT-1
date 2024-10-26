@@ -34,6 +34,13 @@ public class PlayerSkinProcessor extends DataPacketProcessor<PlayerSkinPacket> {
             return;
         }
 
+        if (!skin.hasValidGeometryData()) {
+            player.getServer().getLogger().warning(playerHandle.getUsername() + ": PlayerSkinPacket with invalid geometry data");
+            player.close("", "disconnectionScreen.invalidSkin");
+
+            return;
+        }
+
         PlayerChangeSkinEvent playerChangeSkinEvent = new PlayerChangeSkinEvent(player, skin);
         if (TimeUnit.SECONDS.toMillis(player.getServer().getPlayerSkinChangeCooldown()) > System.currentTimeMillis() - player.lastSkinChange) {
             playerChangeSkinEvent.setCancelled(true);

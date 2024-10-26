@@ -82,7 +82,7 @@ public abstract class EntitySlenderProjectile extends EntityProjectile {
                 filteredBlocks = Arrays.asList(collisionBlocks);
             }
             Entity[] collisionEntities = this.getLevel().getCollidingEntities(currentAABB, this);
-            if (filteredBlocks.size() != 0) {
+            if (!filteredBlocks.isEmpty()) {
                 currentAABB.offset(-dirVector.x, -dirVector.y, -dirVector.z);
                 collisionBlock = filteredBlocks.stream().min(Comparator.comparingDouble(projectile::distanceSquared)).get();
                 break;
@@ -203,7 +203,7 @@ public abstract class EntitySlenderProjectile extends EntityProjectile {
         }
 
         int tickDiff = currentTick - this.lastUpdate;
-        if (tickDiff <= 0 && !this.justCreated) {
+        if (tickDiff <= 0 && !this.justCreated && !(this instanceof EntityArrow)) {
             return true;
         }
         this.lastUpdate = currentTick;

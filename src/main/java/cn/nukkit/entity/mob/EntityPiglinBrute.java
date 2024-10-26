@@ -24,7 +24,7 @@ public class EntityPiglinBrute extends EntityWalkingMob {
 
         super.initEntity();
 
-        this.setDamage(new int[]{0, 3, 7, 10}); // no weapon
+        this.setDamage(new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}); // no weapon
         //this.setDamage(new int[]{0, 6, 10, 15}); // with weapon
     }
 

@@ -323,6 +323,11 @@ public class BinaryStream {
     private static byte[] steveSkinDecoded;
 
     public void putSkin(int protocol, Skin skin) {
+        String geometryData = skin.getGeometryData();
+        if (geometryData.length() > 1024 * 256) {
+            throw new ClientChainData.TooBigSkinException("The skin geometry is too big: " + geometryData.length() + ", expected less than 262144");
+        }
+
         this.putString(skin.getSkinId());
 
         if (protocol < ProtocolInfo.v1_13_0) {
@@ -338,8 +343,9 @@ public class BinaryStream {
                 if (protocol >= ProtocolInfo.v1_2_13) {
                     this.putByteArray(skin.getCapeData().data);
                 }
+
                 this.putString(skin.isLegacySlim ? "geometry.humanoid.customSlim" : "geometry.humanoid.custom");
-                this.putString(skin.getGeometryData());
+                this.putString(geometryData);
             }
         } else {
             if (protocol >= ProtocolInfo.v1_16_210) {
@@ -360,7 +366,8 @@ public class BinaryStream {
             }
 
             this.putImage(skin.getCapeData());
-            this.putString(skin.getGeometryData());
+
+            this.putString(geometryData);
             if (protocol >= ProtocolInfo.v1_17_30) {
                 this.putString(skin.getGeometryDataEngineVersion());
             }

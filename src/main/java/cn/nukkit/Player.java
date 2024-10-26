@@ -1821,95 +1821,46 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
         Block[] scaffoldingUnder = this.level.getCollisionBlocks(scanBoundingBox, true, true, b -> b.getId() == BlockID.SCAFFOLDING);
         this.setDataFlag(DATA_FLAGS_EXTENDED, DATA_FLAG_OVER_SCAFFOLDING, scaffoldingUnder.length > 0);
 
-        if (endPortal) {
-            inEndPortalTicks++;
-        } else {
+        this.doNetherPortalTick(portal);
+        this.doEndPortalTick(endPortal);
+    }
+
+    private void doEndPortalTick(boolean inside) {
+        if (!this.server.endEnabled) return;
+
+        if (!inside) {
             this.inEndPortalTicks = 0;
+
+            return;
         }
 
-        if (server.endEnabled && inEndPortalTicks == 1) {
-            EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.END);
-            this.getServer().getPluginManager().callEvent(ev);
+        this.inEndPortalTicks++;
 
-            if (!ev.isCancelled()) {
-                if (this.getLevel().isEnd) {
-                    if (server.vanillaPortals && this.getSpawn().getLevel().getDimension() == Level.DIMENSION_OVERWORLD) {
-                        this.teleport(this.getSpawn(), TeleportCause.END_PORTAL);
-                    } else {
-                        this.teleport(this.getServer().getDefaultLevel().getSafeSpawn(), TeleportCause.END_PORTAL);
-                    }
-                } else {
-                    Level end = this.getServer().getLevelByName("the_end");
-                    if (end != null) {
-                        this.teleport(end.getSafeSpawn(), TeleportCause.END_PORTAL);
-                    }
-                }
+        if (this.inEndPortalTicks > 1) return;
+
+        Position teleportPos = null;
+        if (this.getLevel().isEnd) {
+            if (server.vanillaPortals && this.getSpawn().getLevel().getDimension() == Level.DIMENSION_OVERWORLD) {
+                teleportPos = this.getSpawn();
+            } else {
+                teleportPos = this.getServer().getDefaultLevel().getSafeSpawn();
             }
-        }
-
-        if (portal) {
-            this.inPortalTicks++;
         } else {
-            this.inPortalTicks = 0;
-            this.portalPos = null;
+            Level end = this.getServer().getLevelByName("the_end");
+            if (end != null) {
+                teleportPos = end.getSafeSpawn();
+            }
         }
 
-        if (this.server.isNetherAllowed()) {
-            if (this.server.vanillaPortals && (this.inPortalTicks == 40 || this.inPortalTicks == 10 && this.gamemode == CREATIVE) && this.portalPos == null) {
-                Position portalPos = this.level.calculatePortalMirror(this);
-                if (portalPos == null) {
-                    return;
-                }
+        if (teleportPos == null) {
+            throw new RuntimeException("End portal destination not found");
+        }
 
-                for (int x = -1; x < 2; x++) {
-                    for (int z = -1; z < 2; z++) {
-                        int chunkX = (portalPos.getFloorX() >> 4) + x, chunkZ = (portalPos.getFloorZ() >> 4) + z;
-                        FullChunk chunk = portalPos.level.getChunk(chunkX, chunkZ, false);
-                        if (chunk == null || !(chunk.isGenerated() || chunk.isPopulated())) {
-                            portalPos.level.generateChunk(chunkX, chunkZ, true);
-                        }
-                    }
-                }
-                this.portalPos = portalPos;
-            }
+        EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.END, teleportPos);
+        this.getServer().getPluginManager().callEvent(ev);
 
-            if (this.inPortalTicks == 80 || (this.server.vanillaPortals && this.inPortalTicks == 25 && this.gamemode == CREATIVE)) {
-                EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.NETHER);
-                this.getServer().getPluginManager().callEvent(ev);
-
-                if (ev.isCancelled()) {
-                    this.portalPos = null;
-                    return;
-                }
-
-                if (server.vanillaPortals) {
-                    this.inPortalTicks = 81;
-                    this.getServer().getScheduler().scheduleAsyncTask(InternalPlugin.INSTANCE, new AsyncTask() {
-                        @Override
-                        public void onRun() {
-                            Position foundPortal = BlockNetherPortal.findNearestPortal(portalPos);
-                            getServer().getScheduler().scheduleTask(InternalPlugin.INSTANCE, () -> {
-                                if (foundPortal == null) {
-                                    BlockNetherPortal.spawnPortal(portalPos);
-                                    teleport(portalPos.add(1.5, 1, 0.5));
-                                } else {
-                                    teleport(BlockNetherPortal.getSafePortal(foundPortal));
-                                }
-                                portalPos = null;
-                            });
-                        }
-                    });
-                } else {
-                    if (this.getLevel().getDimension() == Level.DIMENSION_NETHER) {
-                        this.teleport(this.getServer().getDefaultLevel().getSafeSpawn(), TeleportCause.NETHER_PORTAL);
-                    } else {
-                        Level nether = this.getServer().getNetherWorld(this.level.getName());
-                        if (nether != null) {
-                            this.teleport(nether.getSafeSpawn(), TeleportCause.NETHER_PORTAL);
-                        }
-                    }
-                }
-            }
+        if (!ev.isCancelled()) {
+            this.teleport(ev.getTo(), TeleportCause.END_PORTAL);
         }
     }
 

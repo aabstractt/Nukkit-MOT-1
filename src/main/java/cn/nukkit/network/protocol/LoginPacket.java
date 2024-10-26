@@ -2,10 +2,7 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.Server;
 import cn.nukkit.entity.data.Skin;
-import cn.nukkit.utils.PersonaPiece;
-import cn.nukkit.utils.PersonaPieceTint;
-import cn.nukkit.utils.SerializedImage;
-import cn.nukkit.utils.SkinAnimation;
+import cn.nukkit.utils.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -134,6 +131,10 @@ public class LoginPacket extends DataPacket {
 
             if (skinToken.has("SkinGeometry")) {
                 skin.setGeometryData(new String(Base64.getDecoder().decode(skinToken.get("SkinGeometry").getAsString()), StandardCharsets.UTF_8));
+
+                if (!skin.hasValidGeometryData()) {
+                    throw new ClientChainData.TooBigSkinException("The skin geometry for " + this.username + " is too big: " + skin.getGeometryData().length() + ", expected less than 262144");
+                }
             }
         } else {
             if (skinToken.has("PlayFabId")) {
@@ -180,6 +181,10 @@ public class LoginPacket extends DataPacket {
 
             if (skinToken.has("SkinGeometryData")) {
                 skin.setGeometryData(new String(Base64.getDecoder().decode(skinToken.get("SkinGeometryData").getAsString()), StandardCharsets.UTF_8));
+
+                if (!skin.hasValidGeometryData()) {
+                    throw new ClientChainData.TooBigSkinException("The skin geometry for " + this.username + " is too big: " + skin.getGeometryData().length() + ", expected less than 262144");
+                }
             }
 
             if (skinToken.has("SkinAnimationData")) {

@@ -137,7 +137,7 @@ public abstract class EntityWalking extends BaseEntity {
                 } else {
                     this.motionY -= this.getGravity();
                 }
-                this.motionY -= this.getGravity();
+
                 this.updateMovement();
                 return null;
             }

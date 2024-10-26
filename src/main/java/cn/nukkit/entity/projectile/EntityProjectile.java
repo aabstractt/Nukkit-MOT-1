@@ -13,6 +13,7 @@ import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
 import cn.nukkit.level.MovingObjectPosition;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.math.AxisAlignedBB;
+import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
@@ -33,6 +34,7 @@ public abstract class EntityProjectile extends Entity {
     public static final int PICKUP_CREATIVE = 2;
 
     public Entity shootingEntity;
+    public BlockFace shootingFace = null;
 
     public boolean hadCollision = false;
 
@@ -45,6 +47,8 @@ public abstract class EntityProjectile extends Entity {
     public EntityProjectile(FullChunk chunk, CompoundTag nbt, Entity shootingEntity) {
         super(chunk, nbt);
         this.shootingEntity = shootingEntity;
+
+        if (shootingEntity != null) this.shootingFace = shootingEntity.getHorizontalFacing();
         /*if (shootingEntity != null) {
             this.setDataProperty(new LongEntityData(DATA_SHOOTER_ID, shootingEntity.getId()));
         }*/

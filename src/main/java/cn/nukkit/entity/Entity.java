@@ -31,8 +31,10 @@ import cn.nukkit.nbt.tag.*;
 import cn.nukkit.network.protocol.*;
 import cn.nukkit.network.protocol.types.EntityLink;
 import cn.nukkit.network.protocol.types.PropertySyncData;
+import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.plugin.Plugin;
 import cn.nukkit.potion.Effect;
+import cn.nukkit.scheduler.AsyncTask;
 import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.Identifier;
 import cn.nukkit.utils.MainLogger;
@@ -1824,23 +1826,87 @@ public abstract class Entity extends Location implements Metadatable {
             }
         }
 
-        if (this.inPortalTicks == 80 && Server.getInstance().isNetherAllowed() && this instanceof BaseEntity) {
-            EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.NETHER);
-            this.server.getPluginManager().callEvent(ev);
-
-            if (!ev.isCancelled()) {
-                if (this.getLevel().getDimension() == Level.DIMENSION_NETHER) {
-                    this.switchLevel(server.getDefaultLevel());
-                } else {
-                    this.switchLevel(server.getNetherWorld(this.level.getName()));
-                }
-            }
-        }
-
         this.age += tickDiff;
         this.ticksLived += tickDiff;
 
         return hasUpdate;
+    }
+
+    protected void doNetherPortalTick(boolean inside) {
+        if (!this.server.isNetherAllowed()) return;
+
+        if (!inside) {
+            this.inPortalTicks = 0;
+            this.portalPos = null;
+
+            return;
+        }
+
+        this.inPortalTicks++;
+
+        if (this.server.vanillaPortals && this.inPortalTicks > 40 && this.portalPos == null) {
+            Position portalPos = this.level.calculatePortalMirror(this);
+            if (portalPos == null) return;
+
+            for (int x = -1; x < 2; x++) {
+                for (int z = -1; z < 2; z++) {
+                    int chunkX = (portalPos.getFloorX() >> 4) + x;
+                    int chunkZ = (portalPos.getFloorZ() >> 4) + z;
+                    FullChunk chunk = portalPos.level.getChunk(chunkX, chunkZ, false);
+                    if (chunk == null || !(chunk.isGenerated() || chunk.isPopulated())) {
+                        portalPos.level.generateChunk(chunkX, chunkZ, true);
+                    }
+                }
+            }
+
+            this.portalPos = portalPos;
+        }
+
+        if (this.inPortalTicks != 80 && (!this.server.vanillaPortals || this.inPortalTicks != 25)) return;
+        if (this.portalPos == null) return;
+
+        EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.NETHER, this.portalPos);
+        this.getServer().getPluginManager().callEvent(ev);
+
+        if (ev.isCancelled()) {
+            this.portalPos = null;
+
+            this.inPortalTicks = 0;
+
+            return;
+        }
+
+        Position to = ev.getTo();
+
+        if (server.vanillaPortals) {
+            this.inPortalTicks = 81;
+
+            this.getServer().getScheduler().scheduleAsyncTask(InternalPlugin.INSTANCE, new AsyncTask() {
+                @Override
+                public void onRun() {
+                    Position foundPortal = BlockNetherPortal.findNearestPortal(to);
+                    getServer().getScheduler().scheduleTask(InternalPlugin.INSTANCE, () -> {
+                        if (foundPortal == null) {
+                            if (ev.canSpawnPortal()) BlockNetherPortal.spawnPortal(to);
+                            teleport(to.add(1.5, 1, 0.5));
+                        } else {
+                            teleport(BlockNetherPortal.getSafePortal(foundPortal));
+                        }
+
+                        portalPos = null;
+                    });
+                }
+            });
+        } else {
+            if (this.getLevel().getDimension() == Level.DIMENSION_NETHER) {
+                this.teleport(this.getServer().getDefaultLevel().getSafeSpawn(), PlayerTeleportEvent.TeleportCause.NETHER_PORTAL);
+            } else {
+                Level nether = this.getServer().getNetherWorld(this.level.getName());
+                if (nether != null) {
+                    this.teleport(nether.getSafeSpawn(), PlayerTeleportEvent.TeleportCause.NETHER_PORTAL);
+                }
+            }
+        }
     }
 
     public void updateMovement() {
@@ -2600,11 +2666,7 @@ public abstract class Entity extends Location implements Metadatable {
             block.addVelocityToEntity(this, vector);
         }
 
-        if (portal) {
-            inPortalTicks++;
-        } else {
-            this.inPortalTicks = 0;
-        }
+        this.doNetherPortalTick(portal);
 
         if (vector.lengthSquared() > 0) {
             vector = vector.normalize();
