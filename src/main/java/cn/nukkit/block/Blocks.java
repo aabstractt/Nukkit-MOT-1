@@ -1,9 +1,14 @@
 package cn.nukkit.block;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import static cn.nukkit.block.Block.list;
 import static cn.nukkit.block.BlockID.*;
 
 public class Blocks {
+
+    private static final Logger log = LogManager.getLogger(Blocks.class);
 
     static {
         list[AIR] = BlockAir.class; //0
@@ -497,9 +502,21 @@ public class Blocks {
         list[SMOOTH_BASALT] = BlockBasaltSmooth.class; //632
         list[DEEPSLATE] = BlockDeepslate.class; //633
         list[COBBLED_DEEPSLATE] = BlockDeepslateCobbled.class; //634
+
+        list[COBBLED_DEEPSLATE_STAIRS] = BlockStairsDeepslateCobbled.class; //636
+
         list[POLISHED_DEEPSLATE] = BlockDeepslatePolished.class; //638
+
+        list[POLISHED_DEEPSLATE_STAIRS] = BlockStairsDeepslatePolished.class; //640
+
         list[DEEPSLATE_TILES] = BlockTilesDeepslate.class; //642
+
+        list[DEEPSLATE_TILE_STAIRS] = BlockStairsDeepslateTile.class; //644
+
         list[DEEPSLATE_BRICKS] = BlockBricksDeepslate.class; //646
+
+        list[DEEPSLATE_BRICK_STAIRS] = BlockStairsDeepslateBrick.class; //648
+
         list[CHISELED_DEEPSLATE] = BlockDeepslateChiseled.class; //650
         list[DEEPSLATE_LAPIS_ORE] = BlockDeepslateLapisOre.class; // 655
         list[DEEPSLATE_IRON_ORE] = BlockDeepslateIronOre.class; // 656
@@ -565,6 +582,8 @@ public class Blocks {
 
         list[PACKED_MUD] = BlockPackedMud.class; //732
 
+        list[MUD_BRICK_STAIRS] = BlockStairsMudBrick.class; //735
+
         list[MANGROVE_PLANKS] = BlockPlanksMangrove.class; //741
 
         list[BAMBOO_PLANKS] = BlockPlanksBamboo.class; //765
@@ -579,6 +598,7 @@ public class Blocks {
         list[CHERRY_WOOD] = BlockWoodCherry.class; //801
         list[CHERRY_SAPLING] = BlockCherrySapling.class; //802
         list[CHERRY_LEAVES] = BlockCherryLeaves.class; //803
+        list[PINK_PETALS] = BlockPinkPetals.class; //804
 
         list[DECORATED_POT] = BlockDecoratedPot.class; //806
 
