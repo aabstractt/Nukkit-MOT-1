@@ -14,6 +14,7 @@ import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.MovingObjectPosition;
 import cn.nukkit.level.Position;
+import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.level.persistence.PersistentDataContainer;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
@@ -44,7 +45,7 @@ import static cn.nukkit.utils.Utils.dynamic;
 @Log4j2
 public abstract class Block extends Position implements Metadatable, Cloneable, AxisAlignedBB, BlockID {
 
-    public static final int MAX_BLOCK_ID = dynamic(1039);
+    public static final int MAX_BLOCK_ID = dynamic(2048);
     public static final int DATA_BITS = dynamic(6);
     public static final int ID_MASK = 0xfff; //max 4095
     public static final int DATA_SIZE = dynamic(1 << DATA_BITS);
@@ -863,6 +864,33 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
         return block;
     }
 
+    protected Block getSideIfLoaded(BlockFace face) {
+        if (this.isValid()) {
+            return this.level.getBlock(null,
+                    (int) this.x + face.getXOffset(), (int) this.y + face.getYOffset(), (int) this.z + face.getZOffset(),
+                    0, false);
+        }
+        return Block.get(AIR, 0, Position.fromObject(new Vector3(this.x, this.y, this.z).getSide(face, 1)), 0);
+    }
+
+    protected Block getSideIfLoadedOrNull(BlockFace face) {
+        if (this.isValid()) {
+            int cx = ((int) this.x + face.getXOffset()) >> 4;
+            int cz = ((int) this.z + face.getZOffset()) >> 4;
+
+            FullChunk chunk = this.level.getChunkIfLoaded(cx, cz);
+            if (chunk == null) {
+                return null;
+            }
+
+            return this.level.getBlock(chunk,
+                    (int) this.x + face.getXOffset(), (int) this.y + face.getYOffset(), (int) this.z + face.getZOffset(),
+                    0, false);
+        }
+
+        return Block.get(AIR, 0, Position.fromObject(new Vector3(this.x, this.y, this.z).getSide(face, 1)), 0);
+    }
+
     @Override
     public Block up() {
         return up(1);
@@ -1238,7 +1266,7 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
         return false;
     }
 
-    protected static boolean canStayOnFullSolid(Block down) {
+    protected static boolean canConnectToFullSolid(Block down) {
         if (down.isTransparent()) {
             switch (down.getId()) {
                 case BEACON:
@@ -1247,17 +1275,37 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
                 case STAINED_GLASS:
                 case HARD_GLASS:
                 case HARD_STAINED_GLASS:
-                case SCAFFOLDING:
                 case BARRIER:
                 case GLOWSTONE:
                 case SEA_LANTERN:
-                case HOPPER_BLOCK:
+                case MANGROVE_ROOTS:
+                case MUDDY_MANGROVE_ROOTS:
                     return true;
             }
             return false;
         }
         return true;
     }
+
+    protected static boolean canStayOnFullSolid(Block down) {
+        if (canConnectToFullSolid(down)) {
+            return true;
+        }
+        switch (down.getId()) {
+            case SCAFFOLDING:
+            case HOPPER_BLOCK:
+                return true;
+        }
+        if (down instanceof BlockSlab) {
+            return ((BlockSlab) down).hasTopBit();
+        }
+        return down instanceof BlockTrapdoor && ((BlockTrapdoor) down).isTop() && !((BlockTrapdoor) down).isOpen();
+    }
+
+    protected boolean isNarrowSurface() {
+        return this instanceof BlockGlassPane || this instanceof BlockFence || this instanceof BlockWall || this instanceof BlockChain || this instanceof BlockIronBars;
+    }
+
 
     /**
      * 被爆炸破坏时必定掉落<br>
@@ -1267,6 +1315,13 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
      */
     public boolean alwaysDropsOnExplosion() {
         return false;
+    }
+
+    /**
+     * Returns true for WATER and STILL_WATER, false for others
+     */
+    public static boolean isWater(int id) {
+        return id == WATER || id == STILL_WATER;
     }
 
     public boolean isSuspiciousBlock() {

@@ -68,6 +68,7 @@ public class CraftingManager {
     public static DataPacket packet712;
     public static DataPacket packet729;
     public static DataPacket packet748;
+    public static DataPacket packet766;
 
     private final Map<Integer, Map<UUID, ShapedRecipe>> shapedRecipes313 = new Int2ObjectOpenHashMap<>();
     private final Map<Integer, Map<UUID, ShapedRecipe>> shapedRecipes332 = new Int2ObjectOpenHashMap<>();
@@ -686,7 +687,7 @@ public class CraftingManager {
                 if (ingredient.getId() == Item.PLANKS) {
                     ingredient.setDamage(planksMeta);
                 }
-                ingredients.put(ingredientChar, ingredient);
+                ingredients.put(ingredientChar, Item.get(ingredient.getId(), ingredient.getDamage(), ingredient.getCount())); //使用Item.get()方法保证修改后的damage正常处理
             }
             Item result = Item.fromJson(first, true);
             if (result == null) {
@@ -735,6 +736,7 @@ public class CraftingManager {
 
     public void rebuildPacket() {
         //TODO Multiversion 添加新版本支持时修改这里
+        packet766 = packetFor(ProtocolInfo.v1_21_50).compress(Deflater.BEST_COMPRESSION);
         packet748 = packetFor(ProtocolInfo.v1_21_40).compress(Deflater.BEST_COMPRESSION);
         packet729 = packetFor(ProtocolInfo.v1_21_30).compress(Deflater.BEST_COMPRESSION);
         packet712 = packetFor(ProtocolInfo.v1_21_20).compress(Deflater.BEST_COMPRESSION);

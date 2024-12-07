@@ -12,10 +12,10 @@ import cn.nukkit.utils.BinaryStream;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.Zlib;
 import lombok.extern.log4j.Log4j2;
-import org.cloudburstmc.nbt.NbtMap;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -28,7 +28,7 @@ import static cn.nukkit.level.format.generic.EmptyChunkSection.EMPTY_ID_ARRAY;
 @Log4j2
 public class LevelDBChunkSection implements ChunkSection {
 
-    private LevelDBChunk parent;
+    private WeakReference<LevelDBChunk> parent;
 
     protected final int y;
     protected StateBlockStorage[] storages;
@@ -53,7 +53,7 @@ public class LevelDBChunkSection implements ChunkSection {
     }
 
     public LevelDBChunkSection(LevelDBChunk parent, int y) {
-        this.parent = parent;
+        this.parent = new WeakReference<>(parent);
         this.y = y;
         this.storages = new StateBlockStorage[]{ new StateBlockStorage(), new StateBlockStorage() };
     }
@@ -63,7 +63,7 @@ public class LevelDBChunkSection implements ChunkSection {
     }
 
     public LevelDBChunkSection(LevelDBChunk parent, int y, @Nullable StateBlockStorage[] storages, byte[] blockLight, byte[] skyLight, byte[] compressedLight, boolean hasBlockLight, boolean hasSkyLight) {
-        this.parent = parent;
+        this.parent = new WeakReference<>(parent);
         this.y = y;
 
         if (storages == null || storages.length == 0) {
@@ -108,11 +108,11 @@ public class LevelDBChunkSection implements ChunkSection {
 
     @Nullable
     public LevelDBChunk getParent() {
-        return parent;
+        return parent.get();
     }
 
     public void setParent(LevelDBChunk parent) {
-        this.parent = parent;
+        this.parent = new WeakReference<>(parent);
     }
 
     @Override
@@ -169,7 +169,7 @@ public class LevelDBChunkSection implements ChunkSection {
             storage.set(x, y, z, fullId);
 
             dirty = true;
-            parent.onSubChunkBlockChanged(this, layer, x, y, z, previous, fullId);
+            parent.get().onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
         } finally {
             this.writeLock.unlock();
         }
@@ -220,7 +220,7 @@ public class LevelDBChunkSection implements ChunkSection {
             storage.set(x, y, z, fullId);
 
             dirty = true;
-            parent.onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
+            parent.get().onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
         } finally {
             this.writeLock.unlock();
         }
@@ -275,7 +275,7 @@ public class LevelDBChunkSection implements ChunkSection {
     @Override
     public Block getAndSetBlock(int x, int y, int z, int layer, Block block) {
         int fullId;
-        NbtMap state = null;
+        BlockStateSnapshot state = null;
         int previous;
         try {
             this.writeLock.lock();
@@ -292,7 +292,7 @@ public class LevelDBChunkSection implements ChunkSection {
                 storage = this.storages[layer];
 
                 if (block instanceof BlockStorageContainer container) {
-                    state = container.getStateNbt();
+                    state = BlockStateMapping.get().getStateUnsafe(container.getStateNbt());
                 }
 
                 fullId = block.getFullId();
@@ -301,7 +301,7 @@ public class LevelDBChunkSection implements ChunkSection {
                 previous = storage.get(x, y, z);
 
                 if (block instanceof BlockStorageContainer container) {
-                    state = container.getStateNbt();
+                    state = BlockStateMapping.get().getStateUnsafe(container.getStateNbt());
                 }
 
                 fullId = block.getFullId();
@@ -312,13 +312,13 @@ public class LevelDBChunkSection implements ChunkSection {
             }
 
             if (state != null) {
-                storage.set(x, y, z, BlockStateMapping.get().getState(state));
+                storage.set(x, y, z, state);
             } else {
                 storage.set(x, y, z, fullId);
             }
 
             dirty = true;
-            parent.onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
+            parent.get().onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
         } finally {
             this.writeLock.unlock();
         }
@@ -358,7 +358,7 @@ public class LevelDBChunkSection implements ChunkSection {
             storage.set(x, y, z, fullId);
 
             dirty = true;
-            parent.onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
+            parent.get().onSubChunkBlockChanged(this, x, y, z, layer, previous, fullId);
             return true;
         } finally {
             this.writeLock.unlock();
