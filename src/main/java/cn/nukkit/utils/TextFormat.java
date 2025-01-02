@@ -119,6 +119,10 @@ public enum TextFormat {
      */
     MATERIAL_AMETHYST('u', 0x26),
     /**
+     * Represents material resin.
+     */
+    MATERIAL_RESIN('v', 0x27),
+    /**
      * Makes the text obfuscated.
      */
     OBFUSCATED('k', 0x10, true),
@@ -152,8 +156,8 @@ public enum TextFormat {
      * you need to dynamically convert format codes from your custom format.
      */
     public static final char ESCAPE = '\u00A7';
-
-    private static final Pattern CLEAN_PATTERN = Pattern.compile("(?i)" + ESCAPE + "[0-9A-FK-ORXSGJM]");
+    //private static final Pattern CLEAN_PATTERN = Pattern.compile("(?i)" + ESCAPE + "[0-9A-FK-ORXSGJM]");
+    private static final Pattern CLEAN_PATTERN = Pattern.compile("(?i)" + ESCAPE + "[0-9A-V]");
     private final static Map<Integer, TextFormat> BY_ID = Maps.newTreeMap();
     private final static Map<Character, TextFormat> BY_CHAR = new HashMap<>();
 

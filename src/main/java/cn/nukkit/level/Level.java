@@ -240,9 +240,7 @@ public class Level implements ChunkManager, Metadatable {
 
     private final BlockUpdateScheduler updateQueue;
     private final Queue<QueuedUpdate> normalUpdateQueue = new ConcurrentLinkedDeque<>();
-    //private final TreeSet<BlockUpdateEntry> updateQueue = new TreeSet<>();
-    //private final List<BlockUpdateEntry> nextTickUpdates = Lists.newArrayList();
-    //private final Map<BlockVector3, Integer> updateQueueIndex = new HashMap<>();
+    private final Map<Long, Set<Integer>> lightQueue = new ConcurrentHashMap<>(8, 0.9f, 1);
 
     private final Int2ObjectMap<ConcurrentMap<Long, Int2ObjectMap<Player>>> chunkSendQueues = new Int2ObjectOpenHashMap<>();
     private final Int2ObjectMap<LongSet> chunkSendTasks = new Int2ObjectOpenHashMap<>();
@@ -419,27 +417,10 @@ public class Level implements ChunkManager, Metadatable {
         return (((long) x & (long) 0xFFFFFFF) << 36) | ((long) (capWorldY(y, dimensionData) - dimensionData.getMinHeight()) << 28) | ((long) z & (long) 0xFFFFFFF);
     }
 
-    @Deprecated
-    public static char localBlockHash(double x, double y, double z) {
-        byte hi = (byte) (((int) x & 15) + (((int) z & 15) << 4));
-        byte lo = (byte) y;
-        return (char) (((hi & 0xFF) << 8) | (lo & 0xFF));
-    }
-
     public static int localBlockHash(double x, double y, double z, DimensionData dimensionData) {
         byte hi = (byte) (((int) x & 15) + (((int) z & 15) << 4));
         short lo = (short) (capWorldY((int) y, dimensionData) - dimensionData.getMinHeight());
         return (hi & 0xFF) << 16 | lo;
-    }
-
-    @Deprecated
-    public static Vector3 getBlockXYZ(long chunkHash, char blockHash) {
-        int hi = (byte) (blockHash >>> 8);
-        int lo = (byte) blockHash;
-        int y = lo & 0xFF;
-        int x = (hi & 0xF) + (getHashX(chunkHash) << 4);
-        int z = ((hi >> 4) & 0xF) + (getHashZ(chunkHash) << 4);
-        return new Vector3(x, y, z);
     }
 
     public static Vector3 getBlockXYZ(long chunkHash, int blockHash, DimensionData dimensionData) {
@@ -1988,46 +1969,40 @@ public class Level implements ChunkManager, Metadatable {
     public void updateBlockSkyLight(int x, int y, int z) {
     }
 
-    public void updateBlockLight(Map<Long, Map<Integer, Object>> map) {
+    public void updateBlockLight(Map<Long, Set<Integer>> map) {
         int size = map.size();
         if (size == 0) {
             return;
         }
         Queue<Long> lightPropagationQueue = new ConcurrentLinkedQueue<>();
         Queue<Object[]> lightRemovalQueue = new ConcurrentLinkedQueue<>();
-        Long2ObjectOpenHashMap<Object> visited = new Long2ObjectOpenHashMap<>();
-        Long2ObjectOpenHashMap<Object> removalVisited = new Long2ObjectOpenHashMap<>();
+        LongOpenHashSet visited = new LongOpenHashSet();
+        LongOpenHashSet removalVisited = new LongOpenHashSet();
 
-        Iterator<Map.Entry<Long, Map<Integer, Object>>> iter = map.entrySet().iterator();
+        Iterator<Map.Entry<Long, Set<Integer>>> iter = map.entrySet().iterator();
         while (iter.hasNext() && size-- > 0) {
-            Map.Entry<Long, Map<Integer, Object>> entry = iter.next();
+            Map.Entry<Long, Set<Integer>> entry = iter.next();
             iter.remove();
             long index = entry.getKey();
-            Map<Integer, Object> blocks = entry.getValue();
-            int chunkX = Level.getHashX(index);
-            int chunkZ = Level.getHashZ(index);
-            int bx = chunkX << 4;
-            int bz = chunkZ << 4;
-            for (int blockHash : blocks.keySet()) {
-                int hi = (byte) (blockHash >>> 8);
-                int lo = (byte) blockHash;
-                int y = lo & 0xFF;
-                int x = (hi & 0xF) + bx;
-                int z = ((hi >> 4) & 0xF) + bz;
-                BaseFullChunk chunk = getChunk(x >> 4, z >> 4, false);
+            Set<Integer> blocks = entry.getValue();
+
+            for (int blockHash : blocks) {
+                Vector3 pos = getBlockXYZ(index, blockHash, this.getDimensionData());
+                BaseFullChunk chunk = getChunk(pos.getChunkX(), pos.getChunkZ(), false);
                 if (chunk != null) {
-                    int lcx = x & 0xF;
-                    int lcz = z & 0xF;
-                    int oldLevel = chunk.getBlockLight(lcx, y, lcz);
-                    int newLevel = Block.getBlockLight(chunk.getBlockId(lcx, y, lcz));
+                    int lcx = pos.getFloorX() & 0xF;
+                    int lcz = pos.getFloorZ() & 0xF;
+                    int oldLevel = chunk.getBlockLight(lcx, pos.getFloorY(), lcz);
+                    int newLevel = Block.getBlockLight(chunk.getBlockId(lcx, pos.getFloorY(), lcz));
                     if (oldLevel != newLevel) {
-                        this.setBlockLightAt(x, y, z, newLevel);
-                        long hash = Hash.hashBlock(x, y, z);
+                        this.setBlockLightAt(pos.getFloorX(), pos.getFloorY(), pos.getFloorZ(), newLevel);
+
+                        long hash = Hash.hashBlock(pos.getFloorX(), pos.getFloorY(), pos.getFloorZ());
                         if (newLevel < oldLevel) {
-                            removalVisited.put(hash, changeBlocksPresent);
+                            removalVisited.add(hash);
                             lightRemovalQueue.add(new Object[]{hash, oldLevel});
                         } else {
-                            visited.put(hash, changeBlocksPresent);
+                            visited.add(hash);
                             lightPropagationQueue.add(hash);
                         }
                     }
@@ -2075,35 +2050,34 @@ public class Level implements ChunkManager, Metadatable {
     }
 
     private void computeRemoveBlockLight(int x, int y, int z, int currentLight, Queue<Object[]> queue,
-                                         Queue<Long> spreadQueue, Map<Long, Object> visited, Map<Long, Object> spreadVisited) {
+                                         Queue<Long> spreadQueue, Set<Long> visited, Set<Long> spreadVisited) {
         int current = this.getBlockLightAt(x, y, z);
         if (current != 0 && current < currentLight) {
             this.setBlockLightAt(x, y, z, 0);
             if (current > 1) {
                 long index = Hash.hashBlock(x, y, z);
-                if (!visited.containsKey(index)) {
-                    visited.put(index, changeBlocksPresent);
+                if (!visited.contains(index)) {
+                    visited.add(index);
                     queue.add(new Object[]{index, current});
                 }
             }
         } else if (current >= currentLight) {
             long index = Hash.hashBlock(x, y, z);
-            if (!spreadVisited.containsKey(index)) {
-                spreadVisited.put(index, changeBlocksPresent);
+            if (!spreadVisited.contains(index)) {
+                spreadVisited.add(index);
                 spreadQueue.add(index);
             }
         }
     }
 
-    private void computeSpreadBlockLight(int x, int y, int z, int currentLight, Queue<Long> queue,
-                                         Map<Long, Object> visited) {
+    private void computeSpreadBlockLight(int x, int y, int z, int currentLight, Queue<Long> queue, Set<Long> visited) {
         int current = this.getBlockLightAt(x, y, z);
         if (current < currentLight - 1) {
             this.setBlockLightAt(x, y, z, currentLight);
 
             long index = Hash.hashBlock(x, y, z);
-            if (!visited.containsKey(index)) {
-                visited.put(index, changeBlocksPresent);
+            if (!visited.contains(index)) {
+                visited.add(index);
                 if (currentLight > 1) {
                     queue.add(index);
                 }
@@ -2111,16 +2085,10 @@ public class Level implements ChunkManager, Metadatable {
         }
     }
 
-    private final Map<Long, Map<Integer, Object>> lightQueue = new ConcurrentHashMap<>(8, 0.9f, 1);
-
     public void addLightUpdate(int x, int y, int z) {
         long index = chunkHash(x >> 4, z >> 4);
-        Map<Integer, Object> currentMap = lightQueue.get(index);
-        if (currentMap == null) {
-            currentMap = new ConcurrentHashMap<>(8, 0.9f, 1);
-            this.lightQueue.put(index, currentMap);
-        }
-        currentMap.put(Level.localBlockHash(x, y, z, this.getDimensionData()), changeBlocksPresent);
+        Set<Integer> currentMap = this.lightQueue.computeIfAbsent(index, k -> ConcurrentHashMap.newKeySet(8));
+        currentMap.add(Level.localBlockHash(x, y, z, this.getDimensionData()));
     }
 
     @Override

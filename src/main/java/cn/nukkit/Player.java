@@ -271,6 +271,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     protected int inAirTicks = 0;
     protected int startAirTicks = 10;
+    protected int lastInAirTick = 0;
 
     protected AdventureSettings adventureSettings;
 
@@ -431,6 +432,10 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
     public void onChorusFruitTeleport() {
         this.lastChorusFruitTeleport = this.server.getTick();
+    }
+
+    public int getLastInAirTick() {
+        return this.lastInAirTick;
     }
 
     /**
@@ -1492,7 +1497,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
             this.server.getPluginManager().callEvent(new PlayerBedLeaveEvent(this, this.level.getBlock(this.sleeping)));
 
             this.sleeping = null;
-            this.setDataProperty(new IntPositionEntityData(DATA_PLAYER_BED_POSITION, 0, 0, 0));
+            this.removeDataProperty(DATA_PLAYER_BED_POSITION);
             this.setDataFlag(DATA_PLAYER_FLAGS, DATA_PLAYER_FLAG_SLEEP, false);
 
             this.level.sleepTicks = 0;
@@ -1796,6 +1801,7 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
         boolean portal = false;
         boolean endPortal = false;
         boolean scaffolding = false;
+        boolean powderSnow = false;
 
         for (Block block : this.getCollisionBlocks()) {
             switch (block.getId()) {
@@ -1807,6 +1813,9 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                     continue;
                 case Block.SCAFFOLDING:
                     scaffolding = true;
+                    break;
+                case Block.POWDER_SNOW:
+                    powderSnow = true;
                     break;
             }
 
@@ -1823,6 +1832,26 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
 
         this.doNetherPortalTick(portal);
         this.doEndPortalTick(endPortal);
+
+        if(this.getFreezingTicks() < 140 && powderSnow) {
+            if (getFreezingTicks() == 0) {
+                this.setSprinting(false);
+            }
+            this.addFreezingTicks(1);
+            EntityFreezeEvent event = new EntityFreezeEvent(this);
+            this.server.getPluginManager().callEvent(event);
+            if (!event.isCancelled()) {
+                this.setMovementSpeed((float) Math.max(0.05, getMovementSpeed() - 3.58e-4));
+            }
+        }
+        if(!powderSnow && this.getFreezingTicks() > 0) {
+            this.addFreezingTicks(-1);
+            this.setMovementSpeed((float) Math.min(Player.DEFAULT_SPEED, getMovementSpeed() + 3.58e-4));//This magic number is to change the player's 0.05 speed within 140tick
+        }
+
+        if (this.getFreezingTicks() == 140 && this.getServer().getTick() % 40 == 0) {
+            this.attack(new EntityDamageEvent(this, EntityDamageEvent.DamageCause.FREEZING, getFrostbiteInjury()));
+        }
     }
 
     private void doEndPortalTick(boolean inside) {
@@ -1851,13 +1880,6 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                 teleportPos = end.getSafeSpawn();
             }
         }
-
-        if (teleportPos == null) {
-            throw new RuntimeException("End portal destination not found");
-        }
-
-        EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.END, teleportPos);
-        this.getServer().getPluginManager().callEvent(ev);
     }
 
     /**
@@ -2318,6 +2340,8 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                     }
                     this.resetFallDistance();
                 } else {
+                    this.lastInAirTick = server.getTick();
+
                     if (this.checkMovement && !this.isGliding() && !server.getAllowFlight() && this.inAirTicks > 20 && !this.getAllowFlight() && !this.isSleeping() && !this.isImmobile() && !this.isSwimming() && this.riding == null && !this.hasEffect(Effect.LEVITATION) && !this.hasEffect(Effect.SLOW_FALLING)) {
                         double expectedVelocity = (-this.getGravity()) / ((double) this.getDrag()) - ((-this.getGravity()) / ((double) this.getDrag())) * FastMath.exp(-((double) this.getDrag()) * ((double) (this.inAirTicks - this.startAirTicks)));
                         double diff = (this.speed.y - expectedVelocity) * (this.speed.y - expectedVelocity);

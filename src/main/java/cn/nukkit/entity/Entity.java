@@ -2,10 +2,7 @@ package cn.nukkit.entity;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.block.Block;
-import cn.nukkit.block.BlockFire;
-import cn.nukkit.block.BlockID;
-import cn.nukkit.block.BlockWater;
+import cn.nukkit.block.*;
 import cn.nukkit.blockentity.BlockEntityPistonArm;
 import cn.nukkit.entity.custom.CustomEntity;
 import cn.nukkit.entity.custom.EntityDefinition;
@@ -446,6 +443,7 @@ public abstract class Entity extends Location implements Metadatable {
     public int lastUpdate;
     public int fireTicks = 0;
     public int inPortalTicks = 0;
+    public int freezingTicks = 0;//0 - 140
     public int inEndPortalTicks = 0;
     public Position portalPos = null;
 
@@ -535,6 +533,10 @@ public abstract class Entity extends Location implements Metadatable {
 
     protected float getBaseOffset() {
         return 0;
+    }
+
+    public int getFrostbiteInjury() {
+        return 1;
     }
 
     public Entity(FullChunk chunk, CompoundTag nbt) {
@@ -2671,9 +2673,15 @@ public abstract class Entity extends Location implements Metadatable {
 
         Vector3 vector = new Vector3(0, 0, 0);
         boolean portal = false;
+        boolean powderSnow = false;
 
         for (Block block : this.getCollisionBlocks()) {
             if (block.getId() == Block.NETHER_PORTAL) {
+                portal = true;
+                continue;
+            }
+
+            if (block.getId() == Block.POWDER_SNOW) {
                 portal = true;
                 continue;
             }
@@ -2985,6 +2993,10 @@ public abstract class Entity extends Location implements Metadatable {
         return true;
     }
 
+    protected boolean removeDataProperty(int id) {
+        return this.dataProperties.remove(id) != null;
+    }
+
     public boolean setDataPropertyAndSendOnlyToSelf(EntityData data) {
         if (!Objects.equals(data, this.dataProperties.get(data.getId()))) {
             this.dataProperties.put(data);
@@ -3274,6 +3286,34 @@ public abstract class Entity extends Location implements Metadatable {
 
     public List<StringTag> getAllTags() {
         return this.namedTag.getList("Tags", StringTag.class).getAll();
+    }
+
+    public float getFreezingEffectStrength() {
+        return getDataPropertyFloat(DATA_FREEZING_EFFECT_STRENGTH);
+    }
+
+    public void setFreezingEffectStrength(float strength) {
+        if (strength < 0 || strength > 1)
+            throw new IllegalArgumentException("Freezing Effect Strength must be between 0 and 1");
+        this.setDataProperty(new FloatEntityData(DATA_FREEZING_EFFECT_STRENGTH, strength));
+    }
+
+    public int getFreezingTicks() {
+        return this.freezingTicks;
+    }
+
+    public void setFreezingTicks(int ticks) {
+        if (ticks < 0) this.freezingTicks = 0;
+        else if (ticks > 140) this.freezingTicks = 140;
+        else this.freezingTicks = ticks;
+        setFreezingEffectStrength(ticks / 140f);
+    }
+
+    public void addFreezingTicks(int increments) {
+        if (freezingTicks + increments < 0) this.freezingTicks = 0;
+        else if (freezingTicks + increments > 140) this.freezingTicks = 140;
+        else this.freezingTicks += increments;
+        setFreezingEffectStrength(this.freezingTicks / 140f);
     }
 
     private boolean validateAndSetIntProperty(String identifier, int value) {
