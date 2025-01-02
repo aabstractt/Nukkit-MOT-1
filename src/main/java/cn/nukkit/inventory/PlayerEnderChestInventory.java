@@ -14,7 +14,7 @@ import cn.nukkit.network.protocol.types.inventory.ContainerType;
 public class PlayerEnderChestInventory extends BaseInventory {
 
     public PlayerEnderChestInventory(EntityHumanType player) {
-        super(player, InventoryType.ENDER_CHEST);
+        super(player, InventoryType.DOUBLE_CHEST);
     }
 
     @Override

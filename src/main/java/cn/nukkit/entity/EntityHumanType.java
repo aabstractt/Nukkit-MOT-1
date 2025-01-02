@@ -4,10 +4,7 @@ import cn.nukkit.block.BlockID;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
-import cn.nukkit.inventory.InventoryHolder;
-import cn.nukkit.inventory.PlayerEnderChestInventory;
-import cn.nukkit.inventory.PlayerInventory;
-import cn.nukkit.inventory.PlayerOffhandInventory;
+import cn.nukkit.inventory.*;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemSkull;
 import cn.nukkit.item.enchantment.Enchantment;
@@ -122,12 +119,12 @@ public abstract class EntityHumanType extends EntityCreature implements Inventor
         }
 
         this.namedTag.putList(new ListTag<CompoundTag>("EnderItems"));
-        if (this.enderChestInventory != null) {
-            for (int slot = 0; slot < 27; ++slot) {
-                Item item = this.enderChestInventory.getItem(slot);
-                if (item != null && item.getId() != Item.AIR) {
-                    this.namedTag.getList("EnderItems", CompoundTag.class).add(NBTIO.putItemHelper(item, slot));
-                }
+        if (this.enderChestInventory == null) return;
+
+        for (int slot = 0; slot < InventoryType.DOUBLE_CHEST.getDefaultSize(); ++slot) {
+            Item item = this.enderChestInventory.getItem(slot);
+            if (item != null && item.getId() != Item.AIR) {
+                this.namedTag.getList("EnderItems", CompoundTag.class).add(NBTIO.putItemHelper(item, slot));
             }
         }
     }

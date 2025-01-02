@@ -1810,6 +1810,8 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                     continue;
                 case Block.END_PORTAL:
                     endPortal = true;
+
+                    System.out.println("Colliding with endPortal!!!");
                     continue;
                 case Block.SCAFFOLDING:
                     scaffolding = true;
@@ -1857,15 +1859,13 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
     private void doEndPortalTick(boolean inside) {
         if (!this.server.endEnabled) return;
 
-        if (!inside) {
+        if (inside) {
+            this.inEndPortalTicks++;
+        } else {
             this.inEndPortalTicks = 0;
-
-            return;
         }
 
-        this.inEndPortalTicks++;
-
-        if (this.inEndPortalTicks > 1) return;
+        if (this.inEndPortalTicks == 0) return;
 
         Position teleportPos = null;
         if (this.getLevel().isEnd) {
@@ -1880,6 +1880,17 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
                 teleportPos = end.getSafeSpawn();
             }
         }
+
+        this.inEndPortalTicks = 0;
+
+        if (teleportPos == null) {
+            throw new RuntimeException("End portal destination not found");
+        }
+
+        EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.END, teleportPos);
+        this.getServer().getPluginManager().callEvent(ev);
+
+        this.teleport(ev.getTo(), TeleportCause.END_PORTAL);
     }
 
     /**
@@ -6778,11 +6789,6 @@ public class Player extends EntityHuman implements CommandSender, InventoryHolde
             super.setSprinting(value);
             this.setMovementSpeed(value ? getMovementSpeed() * 1.3f : getMovementSpeed() / 1.3f, true);
         }
-    }
-
-    @Override
-    protected boolean canShortSneak() {
-        return false;
     }
 
     @Override
