@@ -7,6 +7,7 @@ import cn.nukkit.level.format.ChunkSection;
 import cn.nukkit.level.format.generic.EmptyChunkSection;
 import cn.nukkit.level.format.leveldb.BlockStateMapping;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.utils.Binary;
 import cn.nukkit.utils.BinaryStream;
 import cn.nukkit.utils.Utils;
@@ -16,6 +17,7 @@ import lombok.extern.log4j.Log4j2;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -134,7 +136,7 @@ public class LevelDBChunkSection implements ChunkSection {
                 return BlockID.AIR;
             }
 
-            return (this.storages[layer].get(x, y, z)) >> Block.DATA_BITS;
+            return (this.storages[layer].getBlockState(x, y, z)).getLegacyId();
         } finally {
             this.readLock.unlock();
         }
@@ -181,7 +183,12 @@ public class LevelDBChunkSection implements ChunkSection {
     }
 
     @Override
-    public int getBlockData( int x, int y, int z, int layer) {
+    public int getBlockData(int x, int y, int z) {
+        return getBlockData(x, y, z, 0);
+    }
+
+    @Override
+    public int getBlockData(int x, int y, int z, int layer) {
         try {
             this.readLock.lock();
 
@@ -189,7 +196,7 @@ public class LevelDBChunkSection implements ChunkSection {
                 return 0;
             }
 
-            return (this.storages[layer].get(x, y, z)) & Block.DATA_MASK;
+            return (this.storages[layer].getBlockState(x, y, z)).getLegacyData();
         } finally {
             this.readLock.unlock();
         }
@@ -248,8 +255,18 @@ public class LevelDBChunkSection implements ChunkSection {
 
     @Override
     public int[] getBlockState(int x, int y, int z, int layer) {
-        int full = this.getFullBlock(x, y, z, layer);
-        return new int[] { full >> Block.DATA_BITS, full & Block.DATA_MASK };
+        try {
+            this.readLock.lock();
+
+            if (!this.hasLayerUnsafe(layer)) {
+                return new int[] { BlockID.AIR, 0 };
+            }
+
+            BlockStateSnapshot blockState = this.storages[layer].getBlockState(x, y, z);
+            return new int[] { blockState.getLegacyId(), blockState.getLegacyData() };
+        } finally {
+            this.readLock.unlock();
+        }
     }
 
     @Override
@@ -363,11 +380,6 @@ public class LevelDBChunkSection implements ChunkSection {
         } finally {
             this.writeLock.unlock();
         }
-    }
-
-    @Override
-    public int getBlockData(int x, int y, int z) {
-        return getBlockData(x, y, z, 0);
     }
 
     public boolean setBlock(int x, int y, int z, int layer, int blockId, int meta) {
@@ -598,6 +610,29 @@ public class LevelDBChunkSection implements ChunkSection {
             byte[] merged = new byte[ids.length + data.length];
             System.arraycopy(ids, 0, merged, 0, ids.length);
             System.arraycopy(data, 0, merged, ids.length, data.length);
+            if (protocolId < ProtocolInfo.v1_2_0) {
+                ByteBuffer buffer = ByteBuffer.allocate(10240);
+                byte[] skyLight = new byte[2048];
+                byte[] blockLight = new byte[2048];
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        int i = (x << 7) | (z << 3);
+                        for (int y = 0; y < 16; y += 2) {
+                            int b1 = this.getBlockSkyLight(x, y, z);
+                            int b2 = this.getBlockSkyLight(x, y + 1, z);
+                            skyLight[i | (y >> 1)] = (byte) ((b2 << 4) | b1);
+                            b1 = this.getBlockLight(x, y, z);
+                            b2 = this.getBlockLight(x, y + 1, z);
+                            blockLight[i | (y >> 1)] = (byte) ((b2 << 4) | b1);
+                        }
+                    }
+                }
+                return buffer
+                        .put(merged)
+                        .put(skyLight)
+                        .put(blockLight)
+                        .array();
+            }
             return merged;
         } finally {
             this.readLock.unlock();

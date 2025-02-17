@@ -166,9 +166,19 @@ public class Level implements ChunkManager, Metadatable {
         xrayableBlocks[Block.LAPIS_ORE] = true;
         xrayableBlocks[Block.DIAMOND_ORE] = true;
         xrayableBlocks[Block.REDSTONE_ORE] = true;
+        xrayableBlocks[Block.GLOWING_REDSTONE_ORE] = true;
         xrayableBlocks[Block.EMERALD_ORE] = true;
         xrayableBlocks[Block.ANCIENT_DEBRIS] = true;
         xrayableBlocks[Block.COPPER_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_LAPIS_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_IRON_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_GOLD_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_REDSTONE_ORE] = true;
+        xrayableBlocks[Block.LIT_DEEPSLATE_REDSTONE_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_DIAMOND_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_COAL_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_EMERALD_ORE] = true;
+        xrayableBlocks[Block.DEEPSLATE_COPPER_ORE] = true;
 
         randomTickBlocks[BlockID.CAVE_VINES] = true;
         randomTickBlocks[BlockID.CAVE_VINES_BODY_WITH_BERRIES] = true;
@@ -1417,10 +1427,10 @@ public class Level implements ChunkManager, Metadatable {
                             if (!(section instanceof EmptyChunkSection)) {
                                 int Y = section.getY();
                                 for (int i = 0; i < randomTickSpeed; ++i) {
-                                    int lcg = this.getUpdateLCG();
-                                    int x = lcg & 0x0f;
-                                    int y = lcg >>> 8 & 0x0f;
-                                    int z = lcg >>> 16 & 0x0f;
+                                    int n = ThreadLocalRandom.current().nextInt();
+                                    int x = n & 0xF;
+                                    int z = n >> 8 & 0xF;
+                                    int y = n >> 16 & 0xF;
 
                                     int blockId = section.getBlockId(x, y, z);
                                     if (blockId >= 0 && blockId <= Block.MAX_BLOCK_ID && randomTickBlocks[blockId]) {
@@ -1434,10 +1444,10 @@ public class Level implements ChunkManager, Metadatable {
                         for (int Y = 0; Y < 8 && (Y < 3 || blockTest); ++Y) {
                             blockTest = false;
                             for (int i = 0; i < randomTickSpeed; ++i) {
-                                int lcg = this.getUpdateLCG();
-                                int x = lcg & 0x0f;
-                                int y = lcg >>> 8 & 0x0f;
-                                int z = lcg >>> 16 & 0x0f;
+                                int n = ThreadLocalRandom.current().nextInt();
+                                int x = n & 0xF;
+                                int z = n >> 8 & 0xF;
+                                int y = n >> 16 & 0xF;
 
                                 int[] state = chunk.getBlockState(x, y + (Y << 4), z);
                                 int blockId = state[0];
@@ -3975,7 +3985,7 @@ public class Level implements ChunkManager, Metadatable {
         int x = (int) pos.x & 0x0f;
         int z = (int) pos.z & 0x0f;
         if (chunk != null && chunk.isGenerated()) {
-            int y = NukkitMath.clamp((int) pos.y, 1, 254);
+            int y = NukkitMath.clamp((int) pos.y, this.getMinBlockY() + 1, this.getMaxBlockY() - 1);
             boolean wasAir = chunk.getBlockId(x, y - 1, z) == 0;
             for (; y > 0; --y) {
                 int[] b = chunk.getBlockState(x, y, z);
@@ -5061,7 +5071,9 @@ public class Level implements ChunkManager, Metadatable {
     }
 
     private int getChunkProtocol(int protocol) {
-        if (protocol >= ProtocolInfo.v1_21_50_26) {
+        if (protocol >= ProtocolInfo.v1_21_60) {
+            return ProtocolInfo.v1_21_60;
+        } else if (protocol >= ProtocolInfo.v1_21_50_26) {
             return ProtocolInfo.v1_21_50;
         } else if (protocol >= ProtocolInfo.v1_21_40) {
             return ProtocolInfo.v1_21_40;
@@ -5183,7 +5195,8 @@ public class Level implements ChunkManager, Metadatable {
         if (chunk == ProtocolInfo.v1_21_20) if (player < ProtocolInfo.v1_21_30) return true;
         if (chunk == ProtocolInfo.v1_21_30) if (player < ProtocolInfo.v1_21_40) return true;
         if (chunk == ProtocolInfo.v1_21_40) if (player < ProtocolInfo.v1_21_50_26) return true;
-        if (chunk == ProtocolInfo.v1_21_50) if (player >= ProtocolInfo.v1_21_50_26) return true;
+        if (chunk == ProtocolInfo.v1_21_50) if (player < ProtocolInfo.v1_21_60) return true;
+        if (chunk == ProtocolInfo.v1_21_60) if (player >= ProtocolInfo.v1_21_60) return true;
         return false; //TODO Multiversion  Remember to update when block palette changes
     }
 
