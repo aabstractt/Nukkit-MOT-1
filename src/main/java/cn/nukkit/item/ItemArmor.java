@@ -51,12 +51,7 @@ abstract public class ItemArmor extends Item implements ItemDurable {
     public boolean onClickAir(Player player, Vector3 directionVector) {
         boolean equip = false;
         Item oldSlotItem = Item.get(AIR);
-        if (this.isHelmet()) {
-            oldSlotItem = player.getInventory().getHelmetFast();
-            if (player.getInventory().setHelmet(this)) {
-                equip = true;
-            }
-        } else if (this.isChestplate()) {
+        if (this.isChestplate()) {
             oldSlotItem = player.getInventory().getChestplateFast();
             if (player.getInventory().setChestplate(this)) {
                 equip = true;
