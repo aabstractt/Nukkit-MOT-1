@@ -17,6 +17,7 @@ import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
+import lombok.Getter;
 import org.apache.commons.math3.util.FastMath;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -25,6 +26,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * @author MagicDroidX
  * Nukkit Project
  */
+@Getter
 public abstract class EntityProjectile extends Entity {
 
     public static final int DATA_SHOOTER_ID = 17;
@@ -35,9 +37,7 @@ public abstract class EntityProjectile extends Entity {
 
     public Entity shootingEntity;
     public BlockFace shootingFace = null;
-
     public boolean hadCollision = false;
-
     public int piercing;
 
     public EntityProjectile(FullChunk chunk, CompoundTag nbt) {
