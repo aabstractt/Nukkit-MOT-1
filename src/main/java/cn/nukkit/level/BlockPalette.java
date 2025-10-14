@@ -1,5 +1,6 @@
 package cn.nukkit.level;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockID;
@@ -20,7 +21,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteOrder;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -30,16 +30,24 @@ import java.util.zip.GZIPInputStream;
 public class BlockPalette {
 
     private final int protocol;
+    private final GameVersion gameVersion;
     private final Int2IntMap legacyToRuntimeId = new Int2IntOpenHashMap();
     private final Int2IntMap runtimeIdToLegacy = new Int2IntOpenHashMap();
-    private final Map<CompoundTag, Integer> stateToLegacy = new HashMap<>();
+    private final Int2IntMap stateHashToLegacy = new Int2IntOpenHashMap();
 
     private final Cache<Integer, Integer> legacyToRuntimeIdCache = CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build();
 
     private volatile boolean locked;
 
+    @Deprecated
     public BlockPalette(int protocol) {
-        this.protocol = protocol;
+        this(GameVersion.byProtocol(protocol, Server.getInstance().onlyNetEaseMode));
+    }
+
+    public BlockPalette(GameVersion gameVersion) {
+        this.protocol = gameVersion.getProtocol();
+        this.gameVersion = gameVersion;
+
         legacyToRuntimeId.defaultReturnValue(-1);
         runtimeIdToLegacy.defaultReturnValue(-1);
 
@@ -49,7 +57,11 @@ public class BlockPalette {
 
     private ListTag<CompoundTag> paletteFor(int protocol) {
         ListTag<CompoundTag> tag;
-        try (InputStream stream = Server.class.getClassLoader().getResourceAsStream("runtime_block_states_" + protocol + ".dat")) {
+        String name = "runtime_block_states_" + protocol + ".dat";
+        if (gameVersion.isNetEase()) {
+            name = "runtime_block_states_netease_" + protocol + ".dat";
+        }
+        try (InputStream stream = Server.class.getClassLoader().getResourceAsStream(name)) {
             if (stream == null) {
                 throw new AssertionError("Unable to locate block state nbt " + protocol);
             }
@@ -123,6 +135,10 @@ public class BlockPalette {
         return this.protocol;
     }
 
+    public GameVersion getGameVersion() {
+        return this.gameVersion;
+    }
+
     public Int2IntMap getLegacyToRuntimeIdMap() {
         return Int2IntMaps.unmodifiable(this.legacyToRuntimeId);
     }
@@ -131,7 +147,7 @@ public class BlockPalette {
         this.locked = false;
         this.legacyToRuntimeId.clear();
         this.runtimeIdToLegacy.clear();
-        this.stateToLegacy.clear();
+        this.stateHashToLegacy.clear();
     }
 
     public void registerState(int blockId, int data, int runtimeId, CompoundTag blockState) {
@@ -142,7 +158,7 @@ public class BlockPalette {
         int legacyId = blockId << Block.DATA_BITS | data;
         this.legacyToRuntimeId.put(legacyId, runtimeId);
         this.runtimeIdToLegacy.putIfAbsent(runtimeId, legacyId);
-        this.stateToLegacy.putIfAbsent(blockState, legacyId);
+        this.stateHashToLegacy.putIfAbsent(blockState.hashCode(), legacyId);
 
         // Hack: Map IDs for item frame up & down states
         if (blockId == BlockID.ITEM_FRAME_BLOCK || blockId == BlockID.GLOW_FRAME) {
@@ -181,7 +197,7 @@ public class BlockPalette {
             if (runtimeId == -1) {
                 Integer cache = legacyToRuntimeIdCache.getIfPresent(legacyId);
                 if (cache == null) {
-                    log.info("(" + protocol + ") Missing block runtime id mappings for " + id + ':' + meta);
+                    log.info("({}) Missing block runtime id mappings for {}:{}", gameVersion, id, meta);
                     runtimeId = legacyToRuntimeId.get(BlockID.INFO_UPDATE << Block.DATA_BITS);
                     legacyToRuntimeIdCache.put(legacyId, runtimeId);
                 } else {
@@ -197,7 +213,7 @@ public class BlockPalette {
     }
 
     public int getLegacyFullId(CompoundTag compoundTag) {
-        return stateToLegacy.getOrDefault(compoundTag, -1);
+        return stateHashToLegacy.getOrDefault(compoundTag.hashCode(), -1);
     }
 
 }

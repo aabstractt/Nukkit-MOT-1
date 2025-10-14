@@ -1,5 +1,6 @@
 package cn.nukkit.resourcepacks;
 
+import cn.nukkit.network.protocol.ProtocolInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -10,11 +11,13 @@ public abstract class AbstractResourcePack implements ResourcePack {
     protected JsonObject manifest;
     private UUID id = null;
 
+    private int protocol = 0;
+    private boolean isNetEase = false;
+
     protected boolean verifyManifest() {
         if (this.manifest.has("format_version") && this.manifest.has("header") && this.manifest.has("modules")) {
             JsonObject header = this.manifest.getAsJsonObject("header");
-            return header.has("description") &&
-                    header.has("name") &&
+            return (this.isNetEase || (header.has("description") && header.has("name"))) &&
                     header.has("uuid") &&
                     header.has("version") &&
                     header.getAsJsonArray("version").size() == 3;
@@ -38,6 +41,17 @@ public abstract class AbstractResourcePack implements ResourcePack {
     }
 
     @Override
+    public int getPackProtocol() {
+        if (protocol == 0) {
+            var header = this.manifest.getAsJsonObject("header");
+            protocol = header.has("min_engine_version") ?
+                    ResourcePackManager.ProtocolConverter.convertToProtocol(header.get("min_engine_version").getAsJsonArray())
+                    : ProtocolInfo.SUPPORTED_PROTOCOLS.get(0);
+        }
+        return protocol;
+    }
+
+    @Override
     public String getPackVersion() {
         JsonArray version = this.manifest.getAsJsonObject("header")
                 .get("version").getAsJsonArray();
@@ -45,6 +59,16 @@ public abstract class AbstractResourcePack implements ResourcePack {
         return String.join(".", version.get(0).getAsString(),
                 version.get(1).getAsString(),
                 version.get(2).getAsString());
+    }
+
+    @Override
+    public void setNetEase(boolean isNetEase) {
+        this.isNetEase = isNetEase;
+    }
+
+    @Override
+    public boolean isNetEase() {
+        return this.isNetEase;
     }
 
     @Override

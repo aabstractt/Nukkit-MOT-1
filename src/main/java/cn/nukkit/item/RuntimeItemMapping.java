@@ -1,8 +1,10 @@
 package cn.nukkit.item;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.Nukkit;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
+import cn.nukkit.block.BlockID;
 import cn.nukkit.item.RuntimeItems.MappingEntry;
 import cn.nukkit.item.customitem.CustomItem;
 import cn.nukkit.item.customitem.CustomItemDefinition;
@@ -38,6 +40,7 @@ import java.util.zip.GZIPInputStream;
 public class RuntimeItemMapping {
 
     private final int protocolId;
+    private final GameVersion gameVersion;
 
     private final Int2ObjectMap<LegacyEntry> runtime2Legacy = new Int2ObjectOpenHashMap<>();
     private final Int2ObjectMap<RuntimeEntry> legacy2Runtime = new Int2ObjectOpenHashMap<>();
@@ -53,9 +56,18 @@ public class RuntimeItemMapping {
 
     private byte[] itemPalette;
 
+    @Deprecated
     public RuntimeItemMapping(Map<String, MappingEntry> mappings, int protocolId) {
-        this.protocolId = protocolId;
+        this(mappings, GameVersion.byProtocol(protocolId, Server.getInstance().onlyNetEaseMode));
+    }
+
+    public RuntimeItemMapping(Map<String, MappingEntry> mappings, GameVersion gameVersion) {
+        this.protocolId = gameVersion.getProtocol();
+        this.gameVersion = gameVersion;
         String itemStatesFile = "runtime_item_states_" + protocolId + ".json";
+        if (gameVersion.isNetEase()) {
+            itemStatesFile = "runtime_item_states_netease_" + protocolId + ".json";
+        }
         InputStream stream = Server.class.getClassLoader().getResourceAsStream(itemStatesFile);
         if (stream == null) {
             throw new AssertionError("Unable to load " + itemStatesFile);
@@ -171,6 +183,32 @@ public class RuntimeItemMapping {
         }
     }
 
+    public void registerCustomBlockItem(String identifier, int legacyId, int damage) {
+        int fullId = this.getFullId(legacyId, damage);
+        LegacyEntry legacyEntry = new LegacyEntry(legacyId, false, damage);
+
+        if (Nukkit.DEBUG > 1) {
+            if (this.runtime2Legacy.containsKey(legacyId)) {
+                log.warn("RuntimeItemMapping: Registering " + identifier + " but runtime id " + legacyId + " is already used");
+            }
+        }
+
+        this.customItems.add(identifier);
+
+        this.runtimeId2Name.put(legacyId, identifier);
+        this.name2RuntimeId.put(identifier, legacyId);
+
+        this.runtime2Legacy.put(legacyId, legacyEntry);
+        this.identifier2Legacy.put(identifier, legacyEntry);
+        if (this.legacy2Runtime.containsKey(fullId)) {
+            log.debug("RuntimeItemMapping contains duplicated legacy item state runtimeId=" + legacyId + " identifier=" + identifier);
+        } else {
+            RuntimeEntry runtimeEntry = new RuntimeEntry(identifier, legacyId, false, true);
+            this.legacy2Runtime.put(fullId, runtimeEntry);
+            this.itemPaletteEntries.add(runtimeEntry);
+        }
+    }
+
     synchronized boolean registerCustomItem(CustomItem customItem) {
         int runtimeId = CustomItemDefinition.getRuntimeId(customItem.getNamespaceId());
         String namespaceId = customItem.getNamespaceId();
@@ -270,18 +308,29 @@ public class RuntimeItemMapping {
         return runtimeEntry;
     }
 
-    public Item parseCreativeItem(JsonObject json, boolean ignoreUnknown) {
-        return this.parseCreativeItem(json, ignoreUnknown, this.protocolId);
+    boolean isRegistered(int id, int meta) {
+        boolean containsKey = this.legacy2Runtime.containsKey(this.getFullId(id, meta));
+        if (!containsKey) {
+            containsKey = this.legacy2Runtime.containsKey(this.getFullId(id, 0));
+        }
+        return containsKey;
     }
 
+    public Item parseCreativeItem(JsonObject json, boolean ignoreUnknown) {
+        return this.parseCreativeItem(json, ignoreUnknown, this.gameVersion);
+    }
+
+    @Deprecated
     public Item parseCreativeItem(JsonObject json, boolean ignoreUnknown, int protocolId) {
+        return this.parseCreativeItem(json, ignoreUnknown, GameVersion.byProtocol(protocolId, Server.getInstance().onlyNetEaseMode));
+    }
+
+    public Item parseCreativeItem(JsonObject json, boolean ignoreUnknown, GameVersion gameVersion) {
+        int protocolId = gameVersion.getProtocol();
         String identifier = json.get("id").getAsString();
         LegacyEntry legacyEntry = this.fromIdentifier(identifier);
         if (legacyEntry == null || !Utils.hasItemOrBlock(legacyEntry.getLegacyId())) {
             OptionalInt networkId = this.getNetworkIdByNamespaceId(identifier);
-            if ("minecraft:raw_iron".equalsIgnoreCase(identifier)) {
-                int test = 1;
-            }
             if (networkId.isEmpty() || !Item.NAMESPACED_ID_ITEM.containsKey(identifier)) {
                 if (!ignoreUnknown) {
                     throw new IllegalStateException("Can not find legacyEntry for " + identifier);
@@ -314,7 +363,7 @@ public class RuntimeItemMapping {
         } else if (json.has("blockRuntimeId")) {
             int runtimeId = json.get("blockRuntimeId").getAsInt();
             if (runtimeId != 0) {
-                int fullId = GlobalBlockPalette.getLegacyFullId(protocolId, runtimeId);
+                int fullId = GlobalBlockPalette.getLegacyFullId(gameVersion, runtimeId);
                 if (fullId == -1) {
                     if (ignoreUnknown) {
                         return null;
@@ -324,6 +373,10 @@ public class RuntimeItemMapping {
                 }
                 damage = fullId & Block.DATA_MASK;
             }
+        }
+
+        if (legacyId == BlockID.RED_MUSHROOM_BLOCK || legacyId == BlockID.BROWN_MUSHROOM_BLOCK) {
+            damage = 14;
         }
 
         int count = json.has("count") ? json.get("count").getAsInt() : 1;

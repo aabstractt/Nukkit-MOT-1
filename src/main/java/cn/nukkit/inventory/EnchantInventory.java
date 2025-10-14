@@ -32,10 +32,7 @@ public class EnchantInventory extends FakeBlockUIComponent {
     @Override
     public void onOpen(Player who) {
         super.onOpen(who);
-
-        who.craftingType = Player.CRAFTING_ENCHANT;
-
-        syncEnchantingTableOptions(who, EnchantingHelper.generateOptions(this.getHolder(), this.getInputSlot(), who.getEnchantingSeed()));
+        who.craftingType = Player.ENCHANT_WINDOW_ID;
     }
 
     @Override

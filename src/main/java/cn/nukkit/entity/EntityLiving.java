@@ -3,9 +3,7 @@ package cn.nukkit.entity;
 import cn.nukkit.AdventureSettings;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.block.Block;
-import cn.nukkit.block.BlockCactus;
-import cn.nukkit.block.BlockMagma;
+import cn.nukkit.block.*;
 import cn.nukkit.entity.mob.EntityDrowned;
 import cn.nukkit.entity.mob.EntityWolf;
 import cn.nukkit.entity.projectile.EntityProjectile;
@@ -284,11 +282,6 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
     }
 
     @Override
-    public boolean entityBaseTick() {
-        return this.entityBaseTick(1);
-    }
-
-    @Override
     public boolean entityBaseTick(int tickDiff) {
         boolean inWater = this.isSubmerged();
 
@@ -331,6 +324,34 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             if (this.isOnLadder() || this.hasEffect(Effect.LEVITATION) || this.hasEffect(Effect.SLOW_FALLING)) {
                 this.resetFallDistance();
             }
+
+            if (this.level.getGameRules().getBoolean(GameRule.FIRE_DAMAGE) && !this.hasEffect(Effect.FIRE_RESISTANCE)) {
+                if (this.isInsideOfLava()) {
+                    this.inLavaTicks++;
+                    if ((this.inLavaTicks % 10) == 0) {
+                        Block lavaBlock = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
+                        if (!(lavaBlock instanceof BlockLava)) {
+                            lavaBlock = lavaBlock.getLevelBlockAtLayer(1);
+                        }
+                        this.attack(new EntityDamageByBlockEvent(lavaBlock, this, DamageCause.LAVA, 4));
+                        this.inLavaTicks = 0;
+                    }
+                }
+
+                if (this.isInsideOfFire()) {
+                    this.inFireTicks++;
+                    if ((this.inFireTicks % 10) == 0) {
+                        Block fireBlock = level.getBlock(this.getFloorX(), this.getFloorY(), this.getFloorZ());
+                        int fireDamage = 1;
+                        if (fireBlock instanceof BlockSoulFire) {
+                            fireDamage = 2;
+                        }
+                        this.attack(new EntityDamageByBlockEvent(fireBlock, this, DamageCause.FIRE, fireDamage));
+                        this.inFireTicks = 0;
+                    }
+                }
+            }
+
 
             if (inWater && !this.hasEffect(Effect.WATER_BREATHING)) {
                 if (this instanceof EntitySwimming || this.isDrowned || (this instanceof Player && (((Player) this).isCreative() || ((Player) this).isSpectator()))) {
@@ -430,14 +451,21 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
         return this.getLineOfSight(maxDistance, maxLength, new HashSet<>(Arrays.asList(transparent)));
     }
 
+    /**
+     * 获取实体视线范围内的方块数组。
+     * Get an array of blocks within the entity's line of sight.
+     *
+     * @param maxDistance 视线的最大距离，超过 120 会被限制为 120 / The maximum distance of the line of sight. If it exceeds 120, it will be limited to 120.
+     * @param maxLength  返回的方块列表的最大长度，若不为 0，列表长度超过该值时会移除最早添加的方块 / The maximum length of the returned block list. If it is not 0, the earliest added block will be removed when the list length exceeds this value.
+     * @param transparent 透明方块 ID 的集合，若方块 ID 在该集合中，会停止遍历 / A set of transparent block IDs. If a block ID is in this set, the traversal will stop.
+     * @return 视线范围内的方块数组 / An array of blocks within the line of sight.
+     */
     public Block[] getLineOfSight(int maxDistance, int maxLength, Set<Integer> transparent) {
         if (maxDistance > 120) {
             maxDistance = 120;
         }
 
-        if (transparent != null && transparent.isEmpty()) {
-            transparent = null;
-        }
+        boolean useTransparent = transparent != null && !transparent.isEmpty();
 
         LinkedList<Block> blocks = new LinkedList<>();
 
@@ -453,18 +481,12 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
 
             int id = block.getId();
 
-            if (transparent == null) {
-                if (id != 0) {
-                    break;
-                }
-            } else {
-                if (transparent.contains(id)) {
-                    break;
-                }
+            if (useTransparent ? !transparent.contains(id) : (id != 0)) {
+                break;
             }
         }
 
-        return blocks.toArray(new Block[0]);
+        return blocks.toArray(Block.EMPTY_ARRAY);
     }
 
     public Block getTargetBlock(int maxDistance) {
@@ -476,12 +498,23 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
     }
 
     public Block getTargetBlock(int maxDistance, Integer[] transparent) {
+        return getTargetBlock(maxDistance, new HashSet<>(Arrays.asList(transparent)));
+    }
+
+    /**
+     * 获取实体视线范围内的第一个非透明方块。
+     * Get the first non-transparent block within the entity's line of sight.
+     *
+     * @param maxDistance 视线的最大距离，超过 120 会被限制为 120 / The maximum distance of the line of sight. If it exceeds 120, it will be limited to 120.
+     * @param transparent 透明方块 ID 的集合，若方块 ID 在该集合中，会停止遍历 / A set of transparent block IDs. If a block ID is in this set, the traversal will stop.
+     */
+    public Block getTargetBlock(int maxDistance, Set<Integer> transparent) {
         try {
             Block[] blocks = this.getLineOfSight(maxDistance, 1, transparent);
             Block block = blocks[0];
             if (block != null) {
-                if (transparent != null && transparent.length != 0) {
-                    if (Arrays.binarySearch(transparent, block.getId()) < 0) {
+                if (transparent != null && !transparent.isEmpty()) {
+                    if (transparent.contains(block.getId())) {
                         return block;
                     }
                 } else {

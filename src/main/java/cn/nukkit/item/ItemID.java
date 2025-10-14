@@ -303,6 +303,7 @@ public interface ItemID {
 
     int BAMBOO_CHEST_RAFT = 648;
     int CHERRY_CHEST_BOAT = 649;
+    int PALE_OAK_CHEST_BOAT = 650;
 
     int GLOW_BERRIES = 654;
 
@@ -349,4 +350,5 @@ public interface ItemID {
 
     int MANGROVE_SIGN = 1005;
     int BAMBOO_SIGN = 1006;
+    int CHERRY_SIGN = 1007;
 }

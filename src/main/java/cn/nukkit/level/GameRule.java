@@ -22,6 +22,7 @@ public enum GameRule {
     FREEZE_DAMAGE("freezeDamage"),
     FUNCTION_COMMAND_LIMIT("functionCommandLimit"),
     KEEP_INVENTORY("keepInventory"),
+    LOCATOR_BAR("locatorBar"),
     MAX_COMMAND_CHAIN_LENGTH("maxCommandChainLength"),
     MOB_GRIEFING("mobGriefing"),
     NATURAL_REGENERATION("naturalRegeneration"),
@@ -29,16 +30,18 @@ public enum GameRule {
     RANDOM_TICK_SPEED("randomTickSpeed"),
     SEND_COMMAND_FEEDBACK("sendCommandFeedback"),
     SHOW_COORDINATES("showCoordinates"),
+    SHOW_DAYS_PLAYED("showDaysPlayed"),
     SHOW_DEATH_MESSAGES("showDeathMessages"),
     SHOW_TAGS("showTags"),
     SPAWN_RADIUS("spawnRadius"),
     TNT_EXPLODES("tntExplodes"),
+    TNT_EXPLOSION_DROP_DECAY("tntExplosionDropDecay"),
     SHOW_BORDER_EFFECT("showBorderEffect"),
     PLAYERS_SLEEPING_PERCENTAGE("playersSleepingPercentage"),
     RECIPES_UNLOCK("recipesUnlock"),
     RESPAWN_BLOCKS_EXPLODE("respawnBlocksExplode"),
     DO_LIMITED_CRAFTING("doLimitedCrafting"),
-    SHOW_RECIPE_MESSAGE("showRecipeMessages"),
+    SHOW_RECIPE_MESSAGES("showRecipeMessages"),
     PROJECTILES_CAN_BREAK_BLOCKS("projectilesCanBreakBlocks");
 
     private final String name;

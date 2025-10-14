@@ -18,13 +18,13 @@ import org.jetbrains.annotations.NotNull;
 /**
  * @author Justin
  */
-public class BlockSkull extends BlockTransparentMeta implements Faceable, BlockEntityHolder<BlockEntitySkull> {
+public class BlockSkullSkeleton extends BlockTransparentMeta implements Faceable, BlockEntityHolder<BlockEntitySkull> {
 
-    public BlockSkull() {
+    public BlockSkullSkeleton() {
         this(0);
     }
 
-    public BlockSkull(int meta) {
+    public BlockSkullSkeleton(int meta) {
         super(meta);
     }
 
@@ -93,7 +93,7 @@ public class BlockSkull extends BlockTransparentMeta implements Faceable, BlockE
     }
 
     @Override
-    public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz, Player player) {
+    public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, BlockFace face, double fx, double fy, double fz, @NotNull Player player) {
         switch (face) {
             case NORTH:
             case SOUTH:
@@ -110,7 +110,7 @@ public class BlockSkull extends BlockTransparentMeta implements Faceable, BlockE
 
         CompoundTag nbt = new CompoundTag()
                 .putString("id", BlockEntity.SKULL)
-                .putByte("SkullType", item.getDamage())
+                .putByte("SkullType", this.getSkullType() == SkullType.DEFAULT? item.getDamage(): this.getSkullType().ordinal())
                 .putInt("x", block.getFloorX())
                 .putInt("y", block.getFloorY())
                 .putInt("z", block.getFloorZ())
@@ -124,9 +124,11 @@ public class BlockSkull extends BlockTransparentMeta implements Faceable, BlockE
         BlockEntitySkull blockEntity = (BlockEntitySkull) BlockEntity.createBlockEntity(BlockEntity.SKULL, this.getChunk(), nbt);
         blockEntity.spawnToAll();
 
-        // TODO: 2016/2/3 SPAWN WITHER
-
         return true;
+    }
+
+    public SkullType getSkullType() {
+        return SkullType.DEFAULT;
     }
 
     @Override
@@ -181,5 +183,15 @@ public class BlockSkull extends BlockTransparentMeta implements Faceable, BlockE
     @Override
     public boolean alwaysDropsOnExplosion() {
         return true;
+    }
+
+    public enum SkullType {
+        DEFAULT,
+        WITHER_SKELETON,
+        ZOMBIE,
+        PLAYER,
+        CREEPER,
+        DRAGON,
+        PIGLIN
     }
 }

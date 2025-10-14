@@ -1,12 +1,11 @@
 package cn.nukkit.inventory;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.inventory.special.RepairItemRecipe;
-import cn.nukkit.item.Item;
-import cn.nukkit.item.ItemFirework;
-import cn.nukkit.item.ItemID;
-import cn.nukkit.item.RuntimeItems;
+import cn.nukkit.block.Block;
+import cn.nukkit.inventory.special.*;
+import cn.nukkit.item.*;
 import cn.nukkit.network.protocol.BatchPacket;
 import cn.nukkit.network.protocol.CraftingDataPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
@@ -69,6 +68,13 @@ public class CraftingManager {
     private static BatchPacket packet748;
     private static BatchPacket packet766;
     private static BatchPacket packet776;
+    private static BatchPacket packet800;
+    private static BatchPacket packet818;
+    private static BatchPacket packet827;
+    private static BatchPacket packet844;
+
+    private static BatchPacket packet_netease_630;
+    private static BatchPacket packet_netease_686;
 
     private final Map<Integer, Map<UUID, ShapedRecipe>> shapedRecipes313 = new Int2ObjectOpenHashMap<>();
     private final Map<Integer, Map<UUID, ShapedRecipe>> shapedRecipes332 = new Int2ObjectOpenHashMap<>();
@@ -103,7 +109,7 @@ public class CraftingManager {
     private final Object2DoubleOpenHashMap<Recipe> recipeXpMap = new Object2DoubleOpenHashMap<>();
 
     private static int RECIPE_COUNT = 0;
-    static int NEXT_NETWORK_ID = 1;
+    static int NEXT_NETWORK_ID = 1; // Reserve 1 for smithing_armor_trim
 
     public static final Comparator<Item> recipeComparator = (i1, i2) -> {
         if (i1.getId() > i2.getId()) {
@@ -112,7 +118,7 @@ public class CraftingManager {
             return -1;
         } else {
             if (!i1.isNull() && !i2.isNull()) {
-                int i = MinecraftNamespaceComparator.compareFNV(i1.getNamespaceId(ProtocolInfo.CURRENT_PROTOCOL), i2.getNamespaceId(ProtocolInfo.CURRENT_PROTOCOL));
+                int i = MinecraftNamespaceComparator.compareFNV(i1.getNamespaceId(GameVersion.getLastVersion()), i2.getNamespaceId(GameVersion.getLastVersion()));
                 if (i != 0) {
                     return i;
                 }
@@ -129,6 +135,14 @@ public class CraftingManager {
     public CraftingManager() {
         MainLogger.getLogger().debug("Loading recipes...");
         this.registerMultiRecipe(new RepairItemRecipe());
+        this.registerMultiRecipe(new BookCloningRecipe());
+        this.registerMultiRecipe(new MapCloningRecipe());
+        this.registerMultiRecipe(new MapUpgradingRecipe());
+        this.registerMultiRecipe(new MapExtendingRecipe());
+        this.registerMultiRecipe(new BannerAddPatternRecipe());
+        this.registerMultiRecipe(new BannerDuplicateRecipe());
+        this.registerMultiRecipe(new FireworkRecipe());
+        this.registerMultiRecipe(new DecoratedPotRecipe());
 
         ConfigSection recipes_649_config = new Config(Config.YAML).loadFromStream(Server.class.getClassLoader().getResourceAsStream("recipes649.json")).getRootSection();
         ConfigSection recipes_419_config = new Config(Config.YAML).loadFromStream(Server.class.getClassLoader().getResourceAsStream("recipes419.json")).getRootSection();
@@ -279,7 +293,7 @@ public class CraftingManager {
                             case "furnace":
                                 FurnaceRecipe furnaceRecipe = new FurnaceRecipe(resultItem, inputItem);
                                 this.registerRecipe(388, furnaceRecipe);
-                                String runtimeId = RuntimeItems.getMapping(388).toRuntime(inputItem.getId(), inputItem.getDamage()).getIdentifier();
+                                String runtimeId = RuntimeItems.getMapping(GameVersion.V1_13_0).toRuntime(inputItem.getId(), inputItem.getDamage()).getIdentifier();
                                 double xp = furnaceXpConfig.getDouble(runtimeId + ":" + inputItem.getDamage(), 0d);
                                 if (xp != 0) {
                                     this.setRecipeXp(furnaceRecipe, xp);
@@ -290,9 +304,13 @@ public class CraftingManager {
                                 break;
                         }
                         break;
-                    /*case 4:
-                        this.registerRecipe(new MultiRecipe(UUID.fromString((String) recipe.get("uuid"))));
-                        break;*/
+                    case 4:
+                        String uuid = (String) recipe.get("uuid");
+                        // TODO: when cartography is supported, this should be removed and add relevant checks like MapCloningRecipe.class.
+                        if (MultiRecipe.unsupportedRecipes.contains(uuid)) {
+                            this.registerRecipe(new UncheckedMultiRecipe(uuid));
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -698,35 +716,86 @@ public class CraftingManager {
         return list;
     }
 
-    private BatchPacket packetFor(int protocol) {
+    private BatchPacket packetFor(GameVersion gameVersion) {
+        int protocol = gameVersion.getProtocol();
         CraftingDataPacket pk = new CraftingDataPacket();
         pk.protocol = protocol;
+        pk.gameVersion = gameVersion;
         for (Recipe recipe : this.getRecipes(protocol)) {
-            if (recipe instanceof ShapedRecipe) {
-                pk.addShapedRecipe((ShapedRecipe) recipe);
-            } else if (recipe instanceof ShapelessRecipe) {
-                pk.addShapelessRecipe((ShapelessRecipe) recipe);
+            if (recipe instanceof ShapedRecipe shapedRecipe) {
+                boolean isSupported = true;
+                for (Item item : shapedRecipe.getAllResults()) {
+                    if (!item.isSupportedOn(protocol)) {
+                        isSupported = false;
+                        break;
+                    }
+                }
+                if (isSupported) {
+                    for (Item ingredient : shapedRecipe.getIngredientList()) {
+                        if (!ingredient.isSupportedOn(protocol)) {
+                            isSupported = false;
+                            break;
+                        }
+                    }
+                }
+                if (isSupported) {
+                    pk.addShapedRecipe(shapedRecipe);
+                }
+            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                boolean isSupported = true;
+                if (!shapelessRecipe.getResult().isSupportedOn(protocol)) {
+                    isSupported = false;
+                    break;
+                }
+                if (isSupported) {
+                    for (Item ingredient : shapelessRecipe.getIngredientList()) {
+                        if (!ingredient.isSupportedOn(protocol)) {
+                            isSupported = false;
+                            break;
+                        }
+                    }
+                }
+                if (isSupported) {
+                    pk.addShapelessRecipe(shapelessRecipe);
+                }
             }
         }
         for (SmithingRecipe recipe : this.getSmithingRecipes(protocol).values()) {
-            pk.addShapelessRecipe(recipe);
+            if (recipe.getIngredient().isSupportedOn(protocol)
+                    && recipe.getEquipment().isSupportedOn(protocol)
+                    && recipe.getTemplate().isSupportedOn(protocol)
+                    && recipe.getResult().isSupportedOn(protocol)) {
+                pk.addShapelessRecipe(recipe);
+            }
         }
         //TODO Fix 1.10.0 - 1.14.0 client crash
         if (protocol < ProtocolInfo.v1_10_0 || protocol > ProtocolInfo.v1_13_0) {
             for (FurnaceRecipe recipe : this.getFurnaceRecipes(protocol).values()) {
-                pk.addFurnaceRecipe(recipe);
+                if (recipe.getInput().isSupportedOn(protocol) && recipe.getResult().isSupportedOn(protocol)) {
+                    pk.addFurnaceRecipe(recipe);
+                }
             }
         }
         if (protocol >= ProtocolInfo.v1_13_0) {
             for (BrewingRecipe recipe : this.getBrewingRecipes(protocol).values()) {
-                pk.addBrewingRecipe(recipe);
+                if (recipe.getIngredient().isSupportedOn(protocol)
+                        && recipe.getInput().isSupportedOn(protocol)
+                        && recipe.getResult().isSupportedOn(protocol)) {
+                    pk.addBrewingRecipe(recipe);
+                }
             }
             for (ContainerRecipe recipe : this.getContainerRecipes(protocol).values()) {
-                pk.addContainerRecipe(recipe);
+                if (recipe.getIngredient().isSupportedOn(protocol)
+                        && recipe.getInput().isSupportedOn(protocol)
+                        && recipe.getResult().isSupportedOn(protocol)) {
+                    pk.addContainerRecipe(recipe);
+                }
             }
             if (protocol >= ProtocolInfo.v1_16_0) {
-                for (MultiRecipe recipe : this.getMultiRecipes(protocol).values()) {
-                    pk.addMultiRecipe(recipe);
+                for (MultiRecipe recipe : this.getMultiRecipes().values()) {
+                    if (recipe.isSupportedOn(protocol)) {
+                        pk.addMultiRecipe(recipe);
+                    }
                 }
             }
         }
@@ -736,6 +805,10 @@ public class CraftingManager {
 
     public void rebuildPacket() {
         //TODO Multiversion 添加新版本支持时修改这里
+        packet844 = null;
+        packet827 = null;
+        packet818 = null;
+        packet800 = null;
         packet776 = null;
         packet766 = null;
         packet748 = null;
@@ -772,7 +845,15 @@ public class CraftingManager {
         packet340 = null;
         packet313 = null;
 
-        this.getCachedPacket(ProtocolInfo.CURRENT_PROTOCOL); // 缓存当前协议版本的数据包
+        packet_netease_686 = null;
+
+        this.getCachedPacket(GameVersion.getLastVersion()); // 缓存当前协议版本的数据包
+        this.getCachedPacket(GameVersion.V1_21_2_NETEASE);
+    }
+
+    @Deprecated
+    public BatchPacket getCachedPacket(int protocol) {
+        return getCachedPacket(GameVersion.byProtocol(protocol, Server.getInstance().onlyNetEaseMode));
     }
 
     /**
@@ -781,186 +862,222 @@ public class CraftingManager {
      * Get cached data packet based on the protocol version.<br/>
      * Choose the appropriate cached data packet based on the protocol version. If no cached data packet is found, create a new one and cache it.
      *
-     * @param protocol 协议版本号，用于确定使用哪个缓存的数据包 <br/>
+     * @param gameVersion 协议版本号，用于确定使用哪个缓存的数据包 <br/>
      *                 Protocol version used to determine which cached data packet to use
      * @return 返回对应协议版本的缓存数据包，如果没有找到对应的缓存，则返回null <br/>
      * Return the cached data packet for the specified protocol version, or null if no cached data packet is found
      */
-    public BatchPacket getCachedPacket(int protocol) {
+    public BatchPacket getCachedPacket(GameVersion gameVersion) {
         //TODO Multiversion 添加新版本支持时修改这里
-        if (protocol >= ProtocolInfo.v1_21_60) {
+        int protocol = gameVersion.getProtocol();
+
+        if (gameVersion.isNetEase()) {
+            if (protocol >= GameVersion.V1_21_2_NETEASE.getProtocol()) {
+                if (packet_netease_686 == null) {
+                    packet_netease_686 = this.packetFor(GameVersion.V1_21_2_NETEASE);
+                }
+                return packet_netease_686;
+            } else if (protocol >= GameVersion.V1_20_50_NETEASE.getProtocol()) {
+                if (packet_netease_630 == null) {
+                    packet_netease_630 = this.packetFor(GameVersion.V1_20_50_NETEASE);
+                }
+                return packet_netease_630;
+            }
+        }
+
+        if (protocol >= GameVersion.V1_21_110_26.getProtocol()) {
+            if (packet844 == null) {
+                packet844 = packetFor(GameVersion.V1_21_110);
+            }
+            return packet844;
+        } else if (protocol >= GameVersion.V1_21_100.getProtocol()) {
+            if (packet827 == null) {
+                packet827 = packetFor(GameVersion.V1_21_100);
+            }
+            return packet827;
+        } else if (protocol >= ProtocolInfo.v1_21_90) {
+            if (packet818 == null) {
+                packet818 = packetFor(GameVersion.V1_21_90);
+            }
+            return packet818;
+        } else if (protocol >= ProtocolInfo.v1_21_80) {
+            if (packet800 == null) {
+                packet800 = packetFor(GameVersion.V1_21_80);
+            }
+            return packet800;
+        } else if (protocol >= ProtocolInfo.v1_21_60) {
             if (packet776 == null) {
-                packet776 = packetFor(ProtocolInfo.v1_21_60);
+                packet776 = packetFor(GameVersion.V1_21_60);
             }
             return packet776;
         } else if (protocol >= ProtocolInfo.v1_21_50_26) {
             if (packet766 == null) {
-                packet766 = packetFor(ProtocolInfo.v1_21_50);
+                packet766 = packetFor(GameVersion.V1_21_50);
             }
             return packet766;
         } else if (protocol >= ProtocolInfo.v1_21_40) {
             if (packet748 == null) {
-                packet748 = packetFor(ProtocolInfo.v1_21_40);
+                packet748 = packetFor(GameVersion.V1_21_40);
             }
             return packet748;
         } else if (protocol >= ProtocolInfo.v1_21_30) {
             if (packet729 == null) {
-                packet729 = packetFor(ProtocolInfo.v1_21_30);
+                packet729 = packetFor(GameVersion.V1_21_30);
             }
             return packet729;
         } else if (protocol >= ProtocolInfo.v1_21_20) {
             if (packet712 == null) {
-                packet712 = packetFor(ProtocolInfo.v1_21_20);
+                packet712 = packetFor(GameVersion.V1_21_20);
             }
             return packet712;
         } else if (protocol >= ProtocolInfo.v1_21_0) {
             if (packet685 == null) {
-                packet685 = packetFor(ProtocolInfo.v1_21_0);
+                packet685 = packetFor(GameVersion.V1_21_0);
             }
             return packet685;
         } else if (protocol >= ProtocolInfo.v1_20_80) {
             if (packet671 == null) {
-                packet671 = packetFor(ProtocolInfo.v1_20_80);
+                packet671 = packetFor(GameVersion.V1_20_80);
             }
             return packet671;
         } else if (protocol >= ProtocolInfo.v1_20_70) {
             if (packet662 == null) {
-                packet662 = packetFor(ProtocolInfo.v1_20_70);
+                packet662 = packetFor(GameVersion.V1_20_70);
             }
             return packet662;
         } else if (protocol >= ProtocolInfo.v1_20_60) {
             if (packet649 == null) {
-                packet649 = packetFor(ProtocolInfo.v1_20_60);
+                packet649 = packetFor(GameVersion.V1_20_60);
             }
             return packet649;
         } else if (protocol >= ProtocolInfo.v1_20_50) {
             if (packet630 == null) {
-                packet630 = packetFor(ProtocolInfo.v1_20_50);
+                packet630 = packetFor(GameVersion.V1_20_50);
             }
             return packet630;
         } else if (protocol >= ProtocolInfo.v1_20_40) {
             if (packet622 == null) {
-                packet622 = packetFor(ProtocolInfo.v1_20_40);
+                packet622 = packetFor(GameVersion.V1_20_40);
             }
             return packet622;
         } else if (protocol >= ProtocolInfo.v1_20_30_24) {
             if (packet618 == null) {
-                packet618 = packetFor(ProtocolInfo.v1_20_30);
+                packet618 = packetFor(GameVersion.V1_20_30);
             }
             return packet618;
         } else if (protocol >= ProtocolInfo.v1_20_10_21) {
             if (packet594 == null) {
-                packet594 = packetFor(ProtocolInfo.v1_20_10);
+                packet594 = packetFor(GameVersion.V1_20_10);
             }
             return packet594;
         } else if (protocol >= ProtocolInfo.v1_20_0_23) {
             if (packet589 == null) {
-                packet589 = packetFor(ProtocolInfo.v1_20_0);
+                packet589 = packetFor(GameVersion.V1_20_0);
             }
             return packet589;
         } else if (protocol >= ProtocolInfo.v1_19_80) {
             if (packet582 == null) {
-                packet582 = packetFor(ProtocolInfo.v1_19_80);
+                packet582 = packetFor(GameVersion.V1_19_80);
             }
             return packet582;
         } else if (protocol >= ProtocolInfo.v1_19_70_24) {
             if (packet575 == null) {
-                packet575 = packetFor(ProtocolInfo.v1_19_70);
+                packet575 = packetFor(GameVersion.V1_19_70);
             }
             return packet575;
         } else if (protocol >= ProtocolInfo.v1_19_60) {
             if (packet567 == null) {
-                packet567 = packetFor(ProtocolInfo.v1_19_60);
+                packet567 = packetFor(GameVersion.V1_19_60);
             }
             return packet567;
         } else if (protocol >= ProtocolInfo.v1_19_50_20) {
             if (packet560 == null) {
-                packet560 = packetFor(ProtocolInfo.v1_19_50);
+                packet560 = packetFor(GameVersion.V1_19_50);
             }
             return packet560;
         } else if (protocol >= ProtocolInfo.v1_19_30_23) {
             if (packet554 == null) {
-                packet554 = packetFor(ProtocolInfo.v1_19_30);
+                packet554 = packetFor(GameVersion.V1_19_30);
             }
             return packet554;
         } else if (protocol >= ProtocolInfo.v1_19_20) {
             if (packet544 == null) {
-                packet544 = packetFor(ProtocolInfo.v1_19_20);
+                packet544 = packetFor(GameVersion.V1_19_20);
             }
             return packet544;
         } else if (protocol >= ProtocolInfo.v1_19_0_29) {
             if (packet527 == null) {
-                packet527 = packetFor(ProtocolInfo.v1_19_0);
+                packet527 = packetFor(GameVersion.V1_19_0);
             }
             return packet527;
         } else if (protocol >= ProtocolInfo.v1_18_30) {
             if (packet503 == null) {
-                packet503 = packetFor(ProtocolInfo.v1_18_30);
+                packet503 = packetFor(GameVersion.V1_18_30);
             }
             return packet503;
         } else if (protocol >= ProtocolInfo.v1_18_10_26) {
             if (packet486 == null) {
-                packet486 = packetFor(ProtocolInfo.v1_18_10);
+                packet486 = packetFor(GameVersion.V1_18_10);
             }
             return packet486;
         } else if (protocol >= ProtocolInfo.v1_17_40) {
             if (packet471 == null) {
-                packet471 = packetFor(ProtocolInfo.v1_17_40);
+                packet471 = packetFor(GameVersion.V1_17_40);
             }
             return packet471;
         } else if (protocol >= ProtocolInfo.v1_17_30) {
             if (packet465 == null) {
-                packet465 = packetFor(ProtocolInfo.v1_17_30);
+                packet465 = packetFor(GameVersion.V1_17_30);
             }
             return packet465;
         } else if (protocol >= ProtocolInfo.v1_17_10) {
             if (packet448 == null) {
-                packet448 = packetFor(ProtocolInfo.v1_17_10);
+                packet448 = packetFor(GameVersion.V1_17_10);
             }
             return packet448;
         } else if (protocol >= ProtocolInfo.v1_17_0) {
             if (packet440 == null) {
-                packet440 = packetFor(ProtocolInfo.v1_17_0);
+                packet440 = packetFor(GameVersion.V1_17_0);
             }
             return packet440;
         } else if (protocol >= ProtocolInfo.v1_16_220) {
             if (packet431 == null) {
-                packet431 = packetFor(ProtocolInfo.v1_16_220);
+                packet431 = packetFor(GameVersion.V1_16_220);
             }
             return packet431;
         } else if (protocol >= ProtocolInfo.v1_16_100) {
             if (packet419 == null) {
-                packet419 = packetFor(ProtocolInfo.v1_16_100);
+                packet419 = packetFor(GameVersion.V1_16_100);
             }
             return packet419;
         } else if (protocol >= ProtocolInfo.v1_16_0) {
             if (packet407 == null) {
-                packet407 = packetFor(ProtocolInfo.v1_16_0);
+                packet407 = packetFor(GameVersion.V1_16_0);
             }
             return packet407;
         } else if (protocol >= ProtocolInfo.v1_13_0) {
             if (packet388 == null) {
-                packet388 = packetFor(ProtocolInfo.v1_13_0);
+                packet388 = packetFor(GameVersion.V1_13_0);
             }
             return packet388;
         } else if (protocol == ProtocolInfo.v1_12_0) {
             if (packet361 == null) {
-                packet361 = packetFor(ProtocolInfo.v1_12_0);
+                packet361 = packetFor(GameVersion.V1_12_0);
             }
             return packet361;
         } else if (protocol == ProtocolInfo.v1_11_0) {
             if (packet354 == null) {
-                packet354 = packetFor(ProtocolInfo.v1_11_0);
+                packet354 = packetFor(GameVersion.V1_11_0);
             }
             return packet354;
         } else if (protocol == ProtocolInfo.v1_10_0) {
             if (packet340 == null) {
-                packet340 = packetFor(ProtocolInfo.v1_10_0);
+                packet340 = packetFor(GameVersion.V1_10_0);
             }
             return packet340;
         } else if (protocol == ProtocolInfo.v1_9_0 || protocol == ProtocolInfo.v1_8_0 || protocol == ProtocolInfo.v1_7_0) { // these should work just fine
             if (packet313 == null) {
-                packet313 = packetFor(ProtocolInfo.v1_8_0);
+                packet313 = packetFor(GameVersion.V1_8_0);
             }
             return packet313;
         }
@@ -1055,11 +1172,16 @@ public class CraftingManager {
         return this.brewingRecipesOld;
     }
 
+    @Deprecated
     public Map<UUID, MultiRecipe> getMultiRecipes(int protocol) {
         if (protocol >= ProtocolInfo.v1_16_0) {
             return this.multiRecipes;
         }
         throw new IllegalArgumentException("Multi recipes are not supported for protocol " + protocol + " (< 407)");
+    }
+
+    public Map<UUID, MultiRecipe> getMultiRecipes() {
+        return this.multiRecipes;
     }
 
     public MultiRecipe getMultiRecipe(Player player, Item outputItem, List<Item> inputs) {
@@ -1128,15 +1250,13 @@ public class CraftingManager {
     }
 
     private static int getItemHash(Item item, int meta) {
-        int id = item.getId() == Item.STRING_IDENTIFIED_ITEM ? item.getNetworkId(ProtocolInfo.CURRENT_PROTOCOL) : item.getId();
-        return (id << 12) | (meta & 0xfff);
+        int id = item.getId() == Item.STRING_IDENTIFIED_ITEM ? item.getNetworkId(GameVersion.getLastVersion()) : item.getId();
+        return (id << Block.DATA_BITS) | (meta & Block.DATA_MASK);
     }
 
     @Deprecated
     private static int getItemHash(int id, int meta) {
-        //return (id << 4) | (meta & 0xf);
-        //return (id << Block.DATA_BITS) | (meta & Block.DATA_MASK);
-        return (id << 12) | (meta & 0xfff);
+        return (id << Block.DATA_BITS) | (meta & Block.DATA_MASK);
     }
 
     public Map<Integer, Map<UUID, ShapedRecipe>> getShapedRecipes(int protocol) {
@@ -1300,8 +1420,8 @@ public class CraftingManager {
     }
 
     public void registerSmithingRecipe(int protocol, SmithingRecipe recipe) {
-        UUID multiItemHash = getMultiItemHash(recipe.getIngredientsAggregate());
         if (protocol >= ProtocolInfo.v1_20_0_23) {
+            UUID multiItemHash = getMultiItemHash(recipe.getIngredientsAggregate());
             this.smithingRecipes.put(multiItemHash, recipe);
         }
     }
@@ -1352,45 +1472,31 @@ public class CraftingManager {
 
     public CraftingRecipe matchRecipe(int protocol, List<Item> inputList, Item primaryOutput, List<Item> extraOutputList) {
         int outputHash = getItemHash(primaryOutput);
-        if (this.getShapedRecipes(protocol).containsKey(outputHash)) {
+
+        Map<UUID, ShapedRecipe> shapedRecipeMap = this.getShapedRecipes(protocol).get(outputHash);
+        if (shapedRecipeMap != null) {
             inputList.sort(recipeComparator);
-
             UUID inputHash = getMultiItemHash(inputList);
-
-            Map<UUID, ShapedRecipe> recipeMap = this.getShapedRecipes(protocol).get(outputHash);
-
-            if (recipeMap != null) {
-                ShapedRecipe recipe = recipeMap.get(inputHash);
-
-                if (recipe != null && (recipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(recipe, inputList, primaryOutput, extraOutputList))) {
-                    return recipe;
-                }
-
-                for (ShapedRecipe shapedRecipe : recipeMap.values()) {
-                    if (shapedRecipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(shapedRecipe, inputList, primaryOutput, extraOutputList)) {
-                        return shapedRecipe;
-                    }
+            ShapedRecipe recipe = shapedRecipeMap.get(inputHash);
+            if (recipe != null && (recipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(recipe, inputList, primaryOutput, extraOutputList))) {
+                return recipe;
+            }
+            for (ShapedRecipe shapedRecipe : shapedRecipeMap.values()) {
+                if (shapedRecipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(shapedRecipe, inputList, primaryOutput, extraOutputList)) {
+                    return shapedRecipe;
                 }
             }
         }
 
-        if (this.getShapelessRecipes(protocol).containsKey(outputHash)) {
+        Map<UUID, ShapelessRecipe> shapelessRecipeMap = this.getShapelessRecipes(protocol).get(outputHash);
+        if (shapelessRecipeMap != null) {
             inputList.sort(recipeComparator);
-
-            Map<UUID, ShapelessRecipe> recipes = this.getShapelessRecipes(protocol).get(outputHash);
-
-            if (recipes == null) {
-                return null;
-            }
-
             UUID inputHash = getMultiItemHash(inputList);
-            ShapelessRecipe recipe = recipes.get(inputHash);
-
+            ShapelessRecipe recipe = shapelessRecipeMap.get(inputHash);
             if (recipe != null && (recipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(recipe, inputList, primaryOutput, extraOutputList))) {
                 return recipe;
             }
-
-            for (ShapelessRecipe shapelessRecipe : recipes.values()) {
+            for (ShapelessRecipe shapelessRecipe : shapelessRecipeMap.values()) {
                 if (shapelessRecipe.matchItems(inputList, extraOutputList) || matchItemsAccumulation(shapelessRecipe, inputList, primaryOutput, extraOutputList)) {
                     return shapelessRecipe;
                 }
@@ -1421,33 +1527,28 @@ public class CraftingManager {
     @Nullable
     public SmithingRecipe matchSmithingRecipe(int protocol, List<Item> inputList) {
         inputList.sort(recipeComparator);
-        UUID inputHash = getMultiItemHash(inputList);
 
-        Map<UUID, SmithingRecipe> recipeMap = this.getSmithingRecipes(protocol);
+        SmithingRecipe recipe = this.getSmithingRecipes(protocol).get(getMultiItemHash(inputList));
+        if (recipe != null && recipe.matchItems(inputList)) {
+            return recipe;
+        }
 
-        if (recipeMap != null) {
-            SmithingRecipe recipe = recipeMap.get(inputHash);
-
-            if (recipe != null && recipe.matchItems(inputList)) {
-                return recipe;
+        ArrayList<Item> list = new ArrayList<>(inputList.size());
+        for (Item item : inputList) {
+            Item clone = item.clone();
+            clone.setCount(1);
+            if (item instanceof ItemDurable && item.getDamage() > 0) {
+                clone.setDamage(0);
             }
+            list.add(clone);
+        }
 
-            ArrayList<Item> list = new ArrayList<>();
-            for (Item item : inputList) {
-                Item clone = item.clone();
-                clone.setCount(1);
-                if ((item.isTool() || item.isArmor()) && item.getDamage() > 0) {
-                    clone.setDamage(0);
-                }
-                list.add(clone);
-            }
-
-            for (SmithingRecipe smithingRecipe : recipeMap.values()) {
-                if (smithingRecipe.matchItems(list)) {
-                    return smithingRecipe;
-                }
+        for (SmithingRecipe smithingRecipe : this.getSmithingRecipes(protocol).values()) {
+            if (smithingRecipe.matchItems(list)) {
+                return smithingRecipe;
             }
         }
+
         return null;
     }
 

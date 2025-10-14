@@ -1,5 +1,6 @@
 package cn.nukkit.level.format.leveldb;
 
+import cn.nukkit.GameVersion;
 import cn.nukkit.block.Block;
 import cn.nukkit.level.format.leveldb.structure.BlockStateSnapshot;
 import cn.nukkit.level.format.leveldb.updater.BlockStateUpdaterChunker;
@@ -22,16 +23,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import static cn.nukkit.level.format.leveldb.LevelDBConstants.PALETTE_VERSION;
-
 @Log4j2
 public class BlockStateMapping {
 
-    private static final BlockStateMapping INSTANCE = new BlockStateMapping(PALETTE_VERSION);
+    private static final BlockStateMapping INSTANCE = new BlockStateMapping(GameVersion.getFeatureVersion());
     private static final CompoundTagUpdaterContext CONTEXT;
     private static final int LATEST_UPDATER_VERSION;
 
-    private final int version;
+    private final GameVersion version;
 
     private LegacyStateMapper legacyMapper;
 
@@ -98,11 +97,7 @@ public class BlockStateMapping {
         blockStateUpdaters.add(BlockStateUpdater_1_20_80.INSTANCE);
         blockStateUpdaters.add(BlockStateUpdater_1_21_0.INSTANCE);
 
-        // TODO 检查BlockStateUpdaterChunker是否可以移除
-        if (Boolean.parseBoolean(System.getProperty("leveldb-chunker"))) {
-            blockStateUpdaters.add(BlockStateUpdaterChunker.INSTANCE);
-            log.warn("Enabled chunker.app LevelDB updater. This may impact chunk loading performance!");
-        }
+        blockStateUpdaters.add(BlockStateUpdaterChunker.INSTANCE);
 
         blockStateUpdaters.add(BlockStateUpdater_1_21_10.INSTANCE);
         blockStateUpdaters.add(BlockStateUpdater_1_21_20.INSTANCE);
@@ -122,13 +117,17 @@ public class BlockStateMapping {
         return INSTANCE;
     }
 
-    public BlockStateMapping(int version) {
+    public BlockStateMapping(GameVersion version) {
         this(version, null);
     }
 
-    public BlockStateMapping(int version, LegacyStateMapper legacyStateMapper) {
+    public BlockStateMapping(GameVersion version, LegacyStateMapper legacyStateMapper) {
         this.version = version;
         this.legacyMapper = legacyStateMapper;
+    }
+
+    public boolean containsState(NbtMap state) {
+        return paletteMap.containsKey(state);
     }
 
     public void registerState(int runtimeId, NbtMap state) {
@@ -159,7 +158,7 @@ public class BlockStateMapping {
         return this.legacyMapper;
     }
 
-    public int getVersion() {
+    public GameVersion getVersion() {
         return this.version;
     }
 
@@ -292,7 +291,14 @@ public class BlockStateMapping {
         NbtMap cached = BLOCK_UPDATE_CACHE.get(state);
         if (cached == null) {
             int version = state.getInt("version"); // TODO: validate this when updating next time
+
+            // 1.18.10/1.18.30/1.19.0/1.19.20 三个版本号一致，避免漏掉更新，这里版本号-1处理
+            if (version == 17959425) {
+                version -= 1;
+            }
+
             cached = CONTEXT.update(state, LATEST_UPDATER_VERSION == version ? version - 1 : version);
+
             BLOCK_UPDATE_CACHE.put(state, cached);
         }
         return cached;

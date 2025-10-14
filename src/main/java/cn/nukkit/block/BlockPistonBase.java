@@ -53,12 +53,12 @@ public abstract class BlockPistonBase extends BlockSolidMeta implements Faceable
 
     @Override
     public double getResistance() {
-        return 2.5;
+        return 1.5;
     }
 
     @Override
     public double getHardness() {
-        return 0.5;
+        return 1.5;
     }
 
     @Override
@@ -127,8 +127,7 @@ public abstract class BlockPistonBase extends BlockSolidMeta implements Faceable
         }
 
         BlockEntity blockEntity = this.level.getBlockEntity(this);
-        if (blockEntity instanceof BlockEntityPistonArm) {
-            BlockEntityPistonArm arm = (BlockEntityPistonArm) blockEntity;
+        if (blockEntity instanceof BlockEntityPistonArm arm) {
             boolean powered = this.isPowered();
 
             if (arm.state % 2 == 0 && arm.powered != powered && this.checkState(powered)) {
@@ -237,7 +236,7 @@ public abstract class BlockPistonBase extends BlockSolidMeta implements Faceable
                 Block newBlock = newBlocks.get(i);
                 Vector3 oldPos = newBlock.add(0);
                 newBlock.position(newBlock.add(0).getSide(side));
-                this.level.setBlock(newBlock, Block.get(BlockID.MOVING_BLOCK), true);
+                this.level.setBlock(newBlock, Block.get(BlockID.MOVING_BLOCK), true, true);
 
                 CompoundTag nbt = BlockEntity.getDefaultCompound(newBlock, BlockEntity.MOVING_BLOCK)
                         .putInt("pistonPosX", this.getFloorX())
@@ -254,13 +253,13 @@ public abstract class BlockPistonBase extends BlockSolidMeta implements Faceable
 
                 BlockEntity.createBlockEntity(BlockEntity.MOVING_BLOCK, newBlock, nbt);
                 if (this.level.getBlockIdAt(oldPos.getFloorX(), oldPos.getFloorY(), oldPos.getFloorZ()) != BlockID.MOVING_BLOCK) {
-                    this.level.setBlock(oldPos, Block.get(BlockID.AIR));
+                    this.level.setBlock(oldPos, Block.get(BlockID.AIR), true, true);
                 }
             }
         }
 
         if (extending) {
-            this.level.setBlock(this.getSide(direction), this.createHead(this.getDamage()));
+            this.level.setBlock(this.getSide(direction), this.createHead(this.getDamage()), true, true);
         }
 
         BlockEntityPistonArm blockEntity = (BlockEntityPistonArm) this.level.getBlockEntity(this);

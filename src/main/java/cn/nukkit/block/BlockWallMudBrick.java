@@ -1,9 +1,9 @@
 package cn.nukkit.block;
 
-import cn.nukkit.item.ItemTool;
+import cn.nukkit.item.Item;
 import cn.nukkit.utils.BlockColor;
 
-public class BlockWallMudBrick extends BlockWall {
+public class BlockWallMudBrick extends BlockWallIndependentID {
 
     public BlockWallMudBrick() {
         this(0);
@@ -11,6 +11,11 @@ public class BlockWallMudBrick extends BlockWall {
 
     public BlockWallMudBrick(int meta) {
         super(meta);
+    }
+
+    @Override
+    public String getIdentifier() {
+        return "minecraft:mud_brick_wall";
     }
 
     @Override
@@ -34,18 +39,14 @@ public class BlockWallMudBrick extends BlockWall {
     }
 
     @Override
-    public boolean canHarvestWithHand() {
-        return false;
-    }
-
-    @Override
-    public int getToolType() {
-        return ItemTool.TYPE_PICKAXE;
-    }
-
-    @Override
-    public int getToolTier() {
-        return ItemTool.TIER_WOODEN;
+    public Item[] getDrops(Item item) {
+        if (item.isPickaxe()) {
+            return new Item[]{
+                    toItem()
+            };
+        } else {
+            return Item.EMPTY_ARRAY;
+        }
     }
 
     @Override

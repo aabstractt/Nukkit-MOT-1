@@ -9,6 +9,7 @@ import cn.nukkit.entity.custom.EntityDefinition;
 import cn.nukkit.entity.custom.EntityManager;
 import cn.nukkit.entity.data.*;
 import cn.nukkit.entity.data.property.*;
+import cn.nukkit.entity.item.EntityMinecartEmpty;
 import cn.nukkit.entity.item.EntityVehicle;
 import cn.nukkit.entity.mob.EntityCreeper;
 import cn.nukkit.entity.mob.EntityWolf;
@@ -227,6 +228,14 @@ public abstract class Entity extends Location implements Metadatable {
      * @since v776 1.21.60
      */
     public static final int DATA_BED_ENTER_POSITION = 133; //vector3f
+    /**
+     * @since v800
+     */
+    public static final int DATA_SEAT_THIRD_PERSON_CAMERA_RADIUS = 134; //float
+    /**
+     * @since v800
+     */
+    public static final int DATA_SEAT_CAMERA_RELAX_DISTANCE_SMOOTHING = 135; //float
 
     // Flags
     public static final int DATA_FLAG_ONFIRE = 0;
@@ -352,6 +361,26 @@ public abstract class Entity extends Location implements Metadatable {
      * @since v776 1.21.60
      */
     public static final int DATA_FLAG_RENDER_WHEN_INVISIBLE = 119;
+    /**
+     * @since v786 1.21.70
+     */
+    public static final int DATA_FLAG_BODY_ROTATION_AXIS_ALIGNED= 120;
+    /**
+     * @since v786 1.21.70
+     */
+    public static final int DATA_FLAG_COLLIDABLE = 121;
+    /**
+     * @since v786 1.21.70
+     */
+    public static final int DATA_FLAG_WASD_AIR_CONTROLLED = 122;
+    /**
+     * @since v800 1.21.80
+     */
+    public static final int DATA_FLAG_DOES_SERVER_AUTH_ONLY_DISMOUNT = 123;
+    /**
+     * @since v818 1.21.90
+     */
+    public static final int DATA_FLAG_BODY_ROTATION_ALWAYS_FOLLOWS_HEAD = 124;
 
     public static final double STEP_CLIP_MULTIPLIER = 0.4;
     public static final int ENTITY_COORDINATES_MAX_VALUE = 2100000000;
@@ -453,6 +482,8 @@ public abstract class Entity extends Location implements Metadatable {
     protected boolean noFallDamage;
     public float fallDistance = 0;
     public int lastUpdate;
+    public int inLavaTicks = 0;
+    public int inFireTicks = 0;
     public int fireTicks = 0;
     public int inPortalTicks = 0;
     public int freezingTicks = 0;//0 - 140
@@ -938,9 +969,8 @@ public abstract class Entity extends Location implements Metadatable {
      * @param cause the cause of the removal
      */
     public void removeEffect(int effectId, EntityPotionEffectEvent.Cause cause) {
-        if (this.effects.containsKey(effectId)) {
-            Effect effect = this.effects.get(effectId);
-
+        Effect effect = this.effects.get(effectId);
+        if (effect != null) {
             if (cause != null) {
                 EntityPotionEffectEvent event = new EntityPotionEffectEvent(this, effect, null, EntityPotionEffectEvent.Action.REMOVED, cause);
                 event.call();
@@ -1425,6 +1455,8 @@ public abstract class Entity extends Location implements Metadatable {
             addEntity.links[i] = new EntityLink(this.id, this.passengers.get(i).id, i == 0 ? EntityLink.TYPE_RIDER : TYPE_PASSENGER, false, false, 0f);
         }
 
+        addEntity.properties = this.propertySyncData();
+
         return addEntity;
     }
 
@@ -1504,34 +1536,32 @@ public abstract class Entity extends Location implements Metadatable {
             return false;
         }
 
-        if (source instanceof EntityDamageByEntityEvent) {
+        if (source instanceof EntityDamageByEntityEvent damageByEntityEvent) {
             // Make fire aspect to set the target in fire before dealing any damage so the target is in fire on death even if killed by the first hit
-            Enchantment[] enchantments = ((EntityDamageByEntityEvent) source).getWeaponEnchantments();
+            Enchantment[] enchantments = damageByEntityEvent.getWeaponEnchantments();
             if (enchantments != null) {
                 for (Enchantment enchantment : enchantments) {
-                    enchantment.doAttack(((EntityDamageByEntityEvent) source).getDamager(), this);
+                    enchantment.doAttack(damageByEntityEvent.getDamager(), this);
                 }
             }
 
             // Wolf targets
             if (source.getEntity() instanceof Player) {
                 for (Entity entity : source.getEntity().getLevel().getNearbyEntities(source.getEntity().getBoundingBox().grow(17, 17, 17), source.getEntity())) {
-                    if (entity instanceof EntityWolf) {
-                        if (((EntityWolf) entity).hasOwner()) {
-                            ((EntityWolf) entity).isAngryTo = ((EntityDamageByEntityEvent) source).getDamager().getId();
-                            ((EntityWolf) entity).setAngry(true);
+                    if (entity instanceof EntityWolf wolf) {
+                        if (wolf.hasOwner()) {
+                            wolf.isAngryTo = damageByEntityEvent.getDamager().getId();
+                            wolf.setAngry(true);
                         }
                     }
                 }
-            } else if (((EntityDamageByEntityEvent) source).getDamager() instanceof Player) {
-                for (Entity entity : ((EntityDamageByEntityEvent) source).getDamager().getLevel().getNearbyEntities(((EntityDamageByEntityEvent) source).getDamager().getBoundingBox().grow(17, 17, 17), ((EntityDamageByEntityEvent) source).getDamager())) {
+            } else if (damageByEntityEvent.getDamager() instanceof Player) {
+                for (Entity entity : damageByEntityEvent.getDamager().getLevel().getNearbyEntities(damageByEntityEvent.getDamager().getBoundingBox().grow(17, 17, 17), damageByEntityEvent.getDamager())) {
                     if (entity.getId() != source.getEntity().getId()) {
-                        if (entity instanceof EntityWolf) {
-                            if (((EntityWolf) entity).hasOwner()) {
-                                if (((EntityWolf) entity).getOwner().equals(((EntityDamageByEntityEvent) source).getDamager())) {
-                                    ((EntityWolf) entity).isAngryTo = source.getEntity().getId();
-                                    ((EntityWolf) entity).setAngry(true);
-                                }
+                        if (entity instanceof EntityWolf wolf) {
+                            if (wolf.hasOwner() && wolf.isOwner(damageByEntityEvent.getDamager())) {
+                                wolf.isAngryTo = source.getEntity().getId();
+                                wolf.setAngry(true);
                             }
                         }
                     }
@@ -1646,12 +1676,30 @@ public abstract class Entity extends Location implements Metadatable {
         return lastDamageCause;
     }
 
+    /**
+     * 获取包含生命提升效果加成的最大生命值。
+     * Get maximum health including health from health boost effect.
+     *
+     * @return 当前的最大生命值。
+     *         current max health
+     */
     public int getMaxHealth() {
         return maxHealth + (this.hasEffect(Effect.HEALTH_BOOST) ? (this.getEffect(Effect.HEALTH_BOOST).getAmplifier() + 1) << 2 : 0);
     }
 
     public void setMaxHealth(int maxHealth) {
         this.maxHealth = maxHealth;
+    }
+
+    /**
+     * 获取不包含效果加成的正常最大生命值。
+     * Get normal maximum health excluding health from effects.
+     *
+     * @return 实际的最大生命值。
+     *         real max health
+     */
+    public int getRealMaxHealth() {
+        return maxHealth;
     }
 
     public boolean canCollideWith(Entity entity) {
@@ -1765,10 +1813,20 @@ public abstract class Entity extends Location implements Metadatable {
         return false;
     }
 
+    @Deprecated
     public boolean entityBaseTick() {
         return this.entityBaseTick(1);
     }
 
+    /**
+     * 实体基础 tick 方法，若实体存活，会在 `onUpdate` 方法中被调用。其返回结果会应用到 `onUpdate` 方法中，之后会自动调用 `updateMovement` 方法。
+     * Entity base tick, called from onUpdate if the entity is alive. Result is applied to onUpdate. updateMovement is called afterward automatically.
+     *
+     * @param tickDiff 间隔 tick
+     *                  Interval tick
+     * @return 是否继续 tick
+     *          Whether to continue tick
+     */
     public boolean entityBaseTick(int tickDiff) {
         if (!this.isPlayer) {
             //this.blocksAround = null; // Use only when entity moves for better performance
@@ -1827,8 +1885,10 @@ public abstract class Entity extends Location implements Metadatable {
                     this.fireTicks = 0;
                 }
             } else {
-                if (!this.hasEffect(Effect.FIRE_RESISTANCE) && ((this.fireTicks % 20) == 0 || tickDiff > 20)) {
-                    this.attack(new EntityDamageEvent(this, DamageCause.FIRE_TICK, 1));
+                if (!this.hasEffect(Effect.FIRE_RESISTANCE) && ((this.fireTicks % 20) == 0 || tickDiff > 20) && this.level.getGameRules().getBoolean(GameRule.FIRE_DAMAGE)) {
+                    if (!isInsideOfLava() && !isInsideOfFire()){
+                        this.attack(new EntityDamageEvent(this, DamageCause.FIRE_TICK, 1));
+                    }
                 }
                 this.fireTicks -= tickDiff;
             }
@@ -1844,6 +1904,27 @@ public abstract class Entity extends Location implements Metadatable {
             this.noDamageTicks -= tickDiff;
             if (this.noDamageTicks < 0) {
                 this.noDamageTicks = 0;
+            }
+        }
+
+        /*if (this.inPortalTicks == 80 && Server.getInstance().isNetherAllowed() && this instanceof BaseEntity) {
+            EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, EntityPortalEnterEvent.PortalType.NETHER);
+            this.server.getPluginManager().callEvent(ev);
+
+            if (!ev.isCancelled()) {
+                if (this.getLevel().getDimension() == Level.DIMENSION_NETHER) {
+                    this.switchLevel(server.getDefaultLevel());
+                } else {
+                    this.switchLevel(server.getNetherWorld(this.level.getName()));
+                }
+            }
+        }*/
+
+        //  每10tick检查一次实体是否可以被甜浆果丛伤害
+        //  如果是玩家则在Player类的handleMovement方法中处理
+        if (ticksLived % 10 == 0 && !this.isPlayer) {
+            if (this.canBeDamagedBySweetBerryBush()) {
+                this.attack(new EntityDamageEvent(this, DamageCause.CONTACT, 1));
             }
         }
 
@@ -1928,6 +2009,24 @@ public abstract class Entity extends Location implements Metadatable {
                 }
             }
         }
+    }
+    /**
+     * @return 实体是否可以被甜浆果丛伤害
+     */
+    protected boolean canBeDamagedBySweetBerryBush() {
+        if (this.isPlayer || this instanceof EntityLiving) {
+            if (getRiding() != null && getRiding().getNetworkId() == EntityMinecartEmpty.NETWORK_ID) {
+                return false;
+            }
+            if (!this.isPlayer && !positionChanged) return false;
+            List<Block> blocks = this.getBlocksAround();
+            for (Block block : blocks) {
+                if (block.getId() == Block.SWEET_BERRY_BUSH && block.getDamage() >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public void updateMovement() {
@@ -2436,6 +2535,16 @@ public abstract class Entity extends Location implements Metadatable {
         return block.isWater() || block.getWaterloggingType() != Block.WaterloggingType.NO_WATERLOGGING && block.getLevelBlockAtLayer(1).isWater();
     }
 
+    public boolean isInsideOfLava() {
+        for (Block block : this.getCollisionBlocks()) {
+            if (block instanceof BlockLava) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public boolean isInsideOfSolid() {
         double y = this.y + this.getEyeHeight();
         Block block = this.level.getBlock(
@@ -2797,8 +2906,8 @@ public abstract class Entity extends Location implements Metadatable {
         // 当坐标接近int类型范围上限时，与碰撞相关的方法有可能计算出超出int表示上限的时
         // eg: Entity::getBlocksAround(), 在示例方法中，会导致服务端迅速OOM
         if (Math.abs(pos.x) > ENTITY_COORDINATES_MAX_VALUE ||
-            Math.abs(pos.y) > ENTITY_COORDINATES_MAX_VALUE ||
-            Math.abs(pos.z) > ENTITY_COORDINATES_MAX_VALUE) {
+                Math.abs(pos.y) > ENTITY_COORDINATES_MAX_VALUE ||
+                Math.abs(pos.z) > ENTITY_COORDINATES_MAX_VALUE) {
             server.getLogger().warning("Entity " + this.getName() + " is trying to set position to " + pos + " which is out of bounds!");
             return false;
         }
@@ -3362,7 +3471,7 @@ public abstract class Entity extends Location implements Metadatable {
         List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier().toString());
 
         for (EntityProperty property : entityPropertyList) {
-            if(property.getIdentifier() == identifier && property instanceof EnumEntityProperty enumEntityProperty) {
+            if(Objects.equals(property.getIdentifier(), identifier) && property instanceof EnumEntityProperty enumEntityProperty) {
                 int index = enumEntityProperty.findIndex(value);
 
                 if(index >= 0) {
@@ -3373,6 +3482,19 @@ public abstract class Entity extends Location implements Metadatable {
             }
         }
         return false;
+    }
+
+    public final String getEnumEntityProperty(String identifier) {
+        List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier().toString());
+
+        for (EntityProperty property : entityPropertyList) {
+            if (!identifier.equals(property.getIdentifier()) ||
+                    !(property instanceof EnumEntityProperty enumProperty)) {
+                continue;
+            }
+            return enumProperty.getEnums()[intProperties.get(identifier)];
+        }
+        return null;
     }
 
     private void initEntityProperties() {

@@ -307,9 +307,9 @@ public class PlayerInventory extends BaseInventory {
 
     @Override
     public boolean clear(int index, boolean send) {
-        if (this.slots.containsKey(index)) {
+        Item old = this.slots.get(index);
+        if (old != null) {
             Item item = new ItemBlock(Block.get(BlockID.AIR), null, 0);
-            Item old = this.slots.get(index);
             if (index >= this.getSize() && index < this.size) {
                 EntityArmorChangeEvent ev = new EntityArmorChangeEvent(this.getHolder(), old, item, index);
                 Server.getInstance().getPluginManager().callEvent(ev);
@@ -592,21 +592,21 @@ public class PlayerInventory extends BaseInventory {
                 pk.windowid = ContainerSetContentPacketV113.SPECIAL_CREATIVE;
                 pk.eid = p.getId();
                 if (!p.isSpectator()) {
-                    pk.slots = Item.getCreativeItems(p.protocol).toArray(Item.EMPTY_ARRAY);
+                    pk.slots = Item.getCreativeItems(p.getGameVersion()).toArray(Item.EMPTY_ARRAY);
                 }
                 p.dataPacket(pk);
             } else {
                 InventoryContentPacket pk = new InventoryContentPacket();
                 pk.inventoryId = ContainerIds.CREATIVE;
                 if (!p.isSpectator()) { //fill it for all gamemodes except spectator
-                    pk.slots = Item.getCreativeItems(p.protocol).toArray(Item.EMPTY_ARRAY);
+                    pk.slots = Item.getCreativeItems(p.getGameVersion()).toArray(Item.EMPTY_ARRAY);
                 }
                 p.dataPacket(pk);
             }
         } else {
             CreativeContentPacket pk = new CreativeContentPacket();
             if (!p.isSpectator()) {
-                pk.creativeItems = Item.getCreativeItemsAndGroups(p.protocol);
+                pk.creativeItems = Item.getCreativeItemsAndGroups(p.getGameVersion());
             }
             p.dataPacket(pk);
         }
@@ -632,11 +632,14 @@ public class PlayerInventory extends BaseInventory {
 
     @Override
     public void onClose(Player who) {
-        ContainerClosePacket pk = new ContainerClosePacket();
-        pk.windowId = who.getWindowId(this);
-        pk.wasServerInitiated = who.getClosingWindowId() != pk.windowId;
-        pk.type = ContainerType.from(this.type.getNetworkType());
-        who.dataPacket(pk);
+        if (who.getClosingWindowId() != Integer.MAX_VALUE) {
+            ContainerClosePacket pk = new ContainerClosePacket();
+            pk.windowId = who.getWindowId(this);
+            pk.wasServerInitiated = who.getClosingWindowId() != pk.windowId;
+            pk.type = ContainerType.from(this.type.getNetworkType());
+            who.dataPacket(pk);
+        }
+
         // Player can never stop viewing their own inventory
         if (who != holder) {
             super.onClose(who);

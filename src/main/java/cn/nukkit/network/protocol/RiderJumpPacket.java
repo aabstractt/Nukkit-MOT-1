@@ -2,7 +2,11 @@ package cn.nukkit.network.protocol;
 
 import lombok.ToString;
 
+/**
+ * @deprecated Removed as of v800 (1.21.80). Server authoritative jump is handled by {@link PlayerAuthInputPacket}
+ */
 @ToString
+@SuppressWarnings("dep-ann")
 public class RiderJumpPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.RIDER_JUMP_PACKET;
