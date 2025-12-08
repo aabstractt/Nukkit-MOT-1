@@ -202,7 +202,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
             double deltaX = damager.getX() - this.getX();
             double deltaZ = damager.getZ() - this.getZ();
             ((EntityLiving) damager).attackTime = source.getAttackCooldown();
-            ((EntityLiving) damager).knockBack(this, 0, deltaX, deltaZ);
+            ((EntityLiving) damager).knockBack(this, 0, deltaX, deltaZ, 0.25);
         }
 
         onBlock(damager, source, event.getAnimation());
@@ -485,7 +485,7 @@ public abstract class EntityLiving extends Entity implements EntityDamageable {
     }
 
     public Block getTargetBlock(int maxDistance) {
-        return getTargetBlock(maxDistance, new Integer[]{});
+        return getTargetBlock(maxDistance, new Integer[0]);
     }
 
     public Block getTargetBlock(int maxDistance, Map<Integer, Object> transparent) {

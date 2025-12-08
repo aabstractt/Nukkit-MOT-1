@@ -9,6 +9,7 @@ import cn.nukkit.entity.custom.EntityDefinition;
 import cn.nukkit.entity.custom.EntityManager;
 import cn.nukkit.entity.data.*;
 import cn.nukkit.entity.data.property.*;
+import cn.nukkit.entity.item.EntityItem;
 import cn.nukkit.entity.item.EntityMinecartEmpty;
 import cn.nukkit.entity.item.EntityVehicle;
 import cn.nukkit.entity.mob.EntityCreeper;
@@ -83,7 +84,9 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_FLAGS = 0;
     public static final int DATA_HEALTH = 1; //int (minecart/boat)
     public static final int DATA_VARIANT = 2; //int
-    public static final int DATA_COLOR = 3, DATA_COLOUR = DATA_COLOR; //byte
+    public static final int DATA_COLOR = 3; //byte
+    @Deprecated
+    public static final int DATA_COLOUR = DATA_COLOR;
     public static final int DATA_NAMETAG = 4; //string
     public static final int DATA_OWNER_EID = 5; //long
     public static final int DATA_TARGET_EID = 6; //long
@@ -254,7 +257,8 @@ public abstract class Entity extends Location implements Metadatable {
     public static final int DATA_FLAG_CRITICAL = 13;
     public static final int DATA_FLAG_CAN_SHOW_NAMETAG = 14;
     public static final int DATA_FLAG_ALWAYS_SHOW_NAMETAG = 15;
-    public static final int DATA_FLAG_IMMOBILE = 16, DATA_FLAG_NO_AI = DATA_FLAG_IMMOBILE;
+    public static final int DATA_FLAG_IMMOBILE = 16;
+    public static final int DATA_FLAG_NO_AI = DATA_FLAG_IMMOBILE;
     public static final int DATA_FLAG_SILENT = 17;
     public static final int DATA_FLAG_WALLCLIMBING = 18;
     public static final int DATA_FLAG_CAN_CLIMB = 19;
@@ -657,7 +661,23 @@ public abstract class Entity extends Location implements Metadatable {
 
         this.temporalVector = new Vector3();
 
-        this.id = entityCount++;
+        if (Server.getInstance().netEaseMode) {
+            // 2^31 - 2^33 给网易uid预留使用
+            if (entityCount >= Integer.MAX_VALUE && entityCount < Integer.MAX_VALUE * 4L) {
+                entityCount = Integer.MAX_VALUE * 4L;
+            }
+
+            if (this instanceof Player player) {
+                long uid = player.getLoginChainData().getNetEaseUID();
+                this.id = uid > Integer.MAX_VALUE ? uid : entityCount;
+            } else {
+                this.id = entityCount;
+            }
+            entityCount++;
+        } else {
+            this.id = entityCount++;
+        }
+
         this.justCreated = true;
         this.namedTag = nbt;
 
@@ -1527,6 +1547,17 @@ public abstract class Entity extends Location implements Metadatable {
         }
     }
 
+    /**
+     * Check if player's hit should be critical
+     * @param player player
+     * @return can make a critical hit
+     */
+    private static boolean canCriticalHit(Player player) {
+        if (player.isOnGround() || player.riding != null || player.speed == null || player.speed.y <= 0 || player.hasEffect(Effect.BLINDNESS)) return false;
+        int b = player.getLevel().getBlockIdAt(player.chunk, player.getFloorX(), player.getFloorY(), player.getFloorZ());
+        return b != Block.LADDER && b != Block.VINES && !Block.isWater(b);
+    }
+
     public boolean attack(EntityDamageEvent source) {
         if (hasEffect(Effect.FIRE_RESISTANCE)
                 && (source.getCause() == DamageCause.FIRE
@@ -1535,9 +1566,26 @@ public abstract class Entity extends Location implements Metadatable {
             return false;
         }
 
+        if (this instanceof EntityLiving && source instanceof EntityDamageByEntityEvent && !(source instanceof EntityDamageByChildEntityEvent)) {
+            Entity damager = ((EntityDamageByEntityEvent) source).getDamager();
+            if (damager instanceof Player && canCriticalHit((Player) damager)) {
+                source.setDamage(source.getFinalDamage() * 0.5f, EntityDamageEvent.DamageModifier.CRITICAL);
+            }
+        }
+
         server.getPluginManager().callEvent(source);
         if (source.isCancelled()) {
             return false;
+        }
+
+        if (source.isApplicable(EntityDamageEvent.DamageModifier.CRITICAL)) {
+            AnimatePacket animate = new AnimatePacket();
+            animate.action = AnimatePacket.Action.CRITICAL_HIT;
+            animate.eid = this.getId();
+            animate.data = 55f;
+
+            this.getLevel().addChunkPacket(this.getChunkX(), this.getChunkZ(), animate);
+            this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_ATTACK_STRONG);
         }
 
         if (source instanceof EntityDamageByEntityEvent damageByEntityEvent) {
@@ -2034,6 +2082,15 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public void updateMovement() {
+        // Reset motion when it approaches 0 to avoid unnecessary processing of move()
+        if (Math.abs(this.motionX) < 0.00001) {
+            this.motionX = 0;
+        }
+
+        if (Math.abs(this.motionZ) < 0.00001) {
+            this.motionZ = 0;
+        }
+
         double diffPosition = (this.x - this.lastX) * (this.x - this.lastX) + (this.y - this.lastY) * (this.y - this.lastY) + (this.z - this.lastZ) * (this.z - this.lastZ);
         double diffRotation = (this.yaw - this.lastYaw) * (this.yaw - this.lastYaw) + (this.pitch - this.lastPitch) * (this.pitch - this.lastPitch);
 
@@ -2051,7 +2108,7 @@ public abstract class Entity extends Location implements Metadatable {
             this.lastHeadYaw = this.headYaw;
 
             this.positionChanged = true;
-        }else {
+        } else {
             this.positionChanged = false;
         }
 
@@ -2069,6 +2126,7 @@ public abstract class Entity extends Location implements Metadatable {
     }
 
     public void addMotion(double motionX, double motionY, double motionZ) {
+        if (this instanceof EntityItem) return; // Seems to be unnecessary
         SetEntityMotionPacket pk = new SetEntityMotionPacket();
         pk.eid = this.id;
         pk.motionX = (float) motionX;
@@ -2754,25 +2812,33 @@ public abstract class Entity extends Location implements Metadatable {
 
     public List<Block> getBlocksAround() {
         if (this.blocksAround == null) {
-            int minX = NukkitMath.floorDouble(this.boundingBox.getMinX());
-            int minY = NukkitMath.floorDouble(this.boundingBox.getMinY());
-            int minZ = NukkitMath.floorDouble(this.boundingBox.getMinZ());
-            int maxX = NukkitMath.ceilDouble(this.boundingBox.getMaxX());
-            int maxY = NukkitMath.ceilDouble(this.boundingBox.getMaxY());
-            int maxZ = NukkitMath.ceilDouble(this.boundingBox.getMaxZ());
+            AxisAlignedBB bb = this.boundingBox;
+            int minX = NukkitMath.floorDouble(bb.getMinX());
+            int minY = Math.max(NukkitMath.floorDouble(bb.getMinY()), this.level.getMinBlockY());
+            int minZ = NukkitMath.floorDouble(bb.getMinZ());
+            int maxX = NukkitMath.ceilDouble(bb.getMaxX());
+            int maxY = Math.min(NukkitMath.ceilDouble(bb.getMaxY()), this.level.getMaxBlockY());
+            int maxZ = NukkitMath.ceilDouble(bb.getMaxZ());
 
-            this.blocksAround = new ArrayList<>();
+            int sizeX = maxX - minX + 1;
+            int sizeY = maxY - minY + 1;
+            int sizeZ = maxZ - minZ + 1;
+
+            if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0) {
+                return new ArrayList<>();
+            }
+
+            this.blocksAround = new ArrayList<>(sizeX * sizeY * sizeZ);
 
             try {
-                if (this.level.isYInRange(minY) || this.level.isYInRange(maxY)) {
-                    minY = Math.max(minY, this.level.getMinBlockY());
-                    maxY = Math.min(maxY, this.level.getMaxBlockY());
-                    for (int z = minZ; z <= maxZ; ++z) {
-                        for (int x = minX; x <= maxX; ++x) {
-                            for (int y = minY; y <= maxY; ++y) {
-                                Block block = this.level.getBlock(x, y, z, false);
-                                this.blocksAround.add(block);
-                            }
+                if (!this.level.isYInRange(minY) && !this.level.isYInRange(maxY)) {
+                    return this.blocksAround;
+                }
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        for (int y = minY; y <= maxY; y++) {
+                            Block block = this.level.getBlock(x, y, z, false);
+                            this.blocksAround.add(block);
                         }
                     }
                 }
@@ -2781,7 +2847,6 @@ public abstract class Entity extends Location implements Metadatable {
                 return new ArrayList<>();
             }
         }
-
         return this.blocksAround;
     }
 
@@ -2789,15 +2854,60 @@ public abstract class Entity extends Location implements Metadatable {
         if (this.collisionBlocks == null) {
             this.collisionBlocks = new ArrayList<>();
 
-            List<Block> bl = this.getBlocksAround();
-            for (Block b : bl) {
-                if (b.collidesWithBB(this.boundingBox, true)) {
-                    this.collisionBlocks.add(b);
+            AxisAlignedBB bb = this.boundingBox.clone();
+            double speed = this.motionX * this.motionX + this.motionY * this.motionY + this.motionZ * this.motionZ;
+            double expand = Math.max(0.5, Math.sqrt(speed) * 1.5);
+
+            AxisAlignedBB expandedBB = bb.grow(expand, expand, expand);
+            List<Block> blocks = getBlocksInBoundingBox(expandedBB);
+
+            for (Block block : blocks) {
+                if (block.getId() == Block.NETHER_PORTAL) {
+                    AxisAlignedBB portalBB = new SimpleAxisAlignedBB(
+                            block.x, block.y, block.z,
+                            block.x + 1, block.y + 1, block.z + 1
+                    );
+
+                    double motionAbsX = Math.abs(this.motionX), motionAbsY = Math.abs(this.motionY), motionAbsZ = Math.abs(this.motionZ);
+                    AxisAlignedBB trajectoryBB = bb.grow(motionAbsX + 0.3, motionAbsY + 0.3, motionAbsZ + 0.3);
+
+                    if (trajectoryBB.intersectsWith(portalBB)) {
+                        this.collisionBlocks.add(block);
+                    }
+                } else if (block.collidesWithBB(bb, true)) {
+                    this.collisionBlocks.add(block);
                 }
             }
         }
-
         return this.collisionBlocks;
+    }
+
+    private List<Block> getBlocksInBoundingBox(AxisAlignedBB bb) {
+        int minX = NukkitMath.floorDouble(bb.getMinX());
+        int minY = Math.max(NukkitMath.floorDouble(bb.getMinY()), this.level.getMinBlockY());
+        int minZ = NukkitMath.floorDouble(bb.getMinZ());
+        int maxX = NukkitMath.ceilDouble(bb.getMaxX());
+        int maxY = Math.min(NukkitMath.ceilDouble(bb.getMaxY()), this.level.getMaxBlockY());
+        int maxZ = NukkitMath.ceilDouble(bb.getMaxZ());
+
+        int sizeX = maxX - minX + 1;
+        int sizeY = maxY - minY + 1;
+        int sizeZ = maxZ - minZ + 1;
+
+        if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0) {
+            return new ArrayList<>();
+        }
+
+        List<Block> blocks = new ArrayList<>(sizeX * sizeY * sizeZ);
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    Block block = this.level.getBlock(x, y, z, false);
+                    if (block != null) blocks.add(block);
+                }
+            }
+        }
+        return blocks;
     }
 
     /**
